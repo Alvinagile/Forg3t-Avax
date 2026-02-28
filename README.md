@@ -3,8 +3,11 @@
 ![Forg3t Banner](https://img.shields.io/badge/Mainnet-Avalanche-red)
 ![Forg3t Banner](https://img.shields.io/badge/Blockchain-C--Chain-E11919)
 ![Forg3t Banner](https://img.shields.io/badge/Status-Production--Ready-green)
+![Live Demo](https://img.shields.io/badge/Live-Demo-blue?link=http://buildgames.forg3t.io/)
 
 Forg3t is the world's first protocol dedicated to **Verifiable AI Unlearning**. It enables organizations and individuals to selectively remove data from AI models and anchor the cryptographic evidence of this removal directly onto the Avalanche blockchain, ensuring transparency, compliance, and trust without compromising model performance.
+
+**🚀 [Try the Live Demo](http://buildgames.forg3t.io/)**
 
 ---
 
