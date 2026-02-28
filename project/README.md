@@ -58,7 +58,7 @@ The protocol's heartbeat is the **ForgEvidenceAnchor** contract, deployed on the
 
 -   **Contract Address**: `0x20E772a60CEE7D8E6706E698B129FD917c3936bf`
 -   **Network**: Avalanche C-Chain
--   **Explorer**: [Snowtrace / Avalanche Subnet Explorer](https://avascan.info/blockchain/c/address/0x20E772a60CEE7D8E6706E698B129FD917c3936bf)
+-   **Explorer**: [Snowtrace Explorer](https://avascan.info/blockchain/c/address/0x20E772a60CEE7D8E6706E698B129FD917c3936bf)
 
 ---
 
