@@ -1,0 +1,21 @@
+{
+    "name": "forg3t-contracts",
+    "version": "1.0.0",
+    "private": true,
+    "description": "ForgEvidenceAnchor — on-chain AI suppression evidence anchoring for Avalanche C-Chain",
+    "scripts": {
+        "compile": "hardhat compile",
+        "test": "hardhat test",
+        "deploy:fuji": "hardhat run scripts/deploy.ts --network fuji",
+        "deploy:avalanche": "hardhat run scripts/deploy.ts --network avalanche",
+        "verify:avalanche": "hardhat verify --network avalanche"
+    },
+    "devDependencies": {
+        "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+        "@openzeppelin/contracts": "^5.0.2",
+        "dotenv": "^16.4.5",
+        "hardhat": "^2.22.3",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.4.5"
+    }
+}
