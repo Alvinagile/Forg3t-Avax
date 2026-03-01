@@ -150,6 +150,38 @@ export async function submitEvidence(
     const pc = publicClient();
     const [account] = await wc.getAddresses();
 
+    // Enforce network switch to Avalanche C-Chain
+    if (typeof window !== 'undefined' && window.ethereum) {
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (chainId !== '0xa86a') {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0xa86a' }],
+                });
+                // Small delay to allow the wallet to settle the network switch internally
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (switchError: any) {
+                if (switchError.code === 4902) {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [
+                            {
+                                chainId: '0xa86a',
+                                chainName: 'Avalanche C-Chain',
+                                nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
+                                rpcUrls: ['https://api.avax.network/ext/bc/C/rpc'],
+                                blockExplorerUrls: ['https://snowtrace.io/'],
+                            },
+                        ],
+                    });
+                } else {
+                    throw switchError;
+                }
+            }
+        }
+    }
+
     const txHash = await wc.writeContract({
         account,
         address: CONTRACT_ADDRESS,

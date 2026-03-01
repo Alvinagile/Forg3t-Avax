@@ -58,15 +58,15 @@ export class AssistantsSuppressionEngine {
         return { valid: true };
       } else {
         const errorData = await response.json();
-        return { 
-          valid: false, 
-          error: `API validation failed (${response.status}): ${errorData.error?.message || 'Unknown error'}` 
+        return {
+          valid: false,
+          error: `API validation failed (${response.status}): ${errorData.error?.message || 'Unknown error'}`
         };
       }
     } catch (error) {
-      return { 
-        valid: false, 
-        error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      return {
+        valid: false,
+        error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }
@@ -88,15 +88,15 @@ export class AssistantsSuppressionEngine {
         return { valid: true, assistant };
       } else {
         const errorData = await response.json();
-        return { 
-          valid: false, 
-          error: `Assistant not found (${response.status}): ${errorData.error?.message || 'Invalid Assistant ID'}` 
+        return {
+          valid: false,
+          error: `Assistant not found (${response.status}): ${errorData.error?.message || 'Invalid Assistant ID'}`
         };
       }
     } catch (error) {
-      return { 
-        valid: false, 
-        error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      return {
+        valid: false,
+        error: `Network error: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }
@@ -134,7 +134,7 @@ export class AssistantsSuppressionEngine {
       // Step 4: Update Assistant instructions
       if (onProgress) onProgress(20, 'Injecting suppression into Assistant...');
       const updatedInstructions = `${originalInstructions}\n\n${suppressionInstructions}`;
-      
+
       const updateResponse = await fetch(`${this.baseUrl}/assistants/${config.assistantId}`, {
         method: 'POST',
         signal: this.abortController.signal,
@@ -205,8 +205,8 @@ export class AssistantsSuppressionEngine {
         passedTests: 0,
         failedTests: 60,
         processingTime: 0,
-        error: error instanceof Error ? 
-          (error.name === 'AbortError' ? 'Operation cancelled by user' : error.message) : 
+        error: error instanceof Error ?
+          (error.name === 'AbortError' ? 'Operation cancelled by user' : error.message) :
           'Unknown error'
       };
     }
@@ -246,7 +246,7 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
     onProgress?: (progress: number, message: string) => void
   ): Promise<Array<{ prompt: string; response: string; suppressionActive: boolean }>> {
     DebugLogger.log('Phase 1: Suppression reinforcement starting');
-    
+
     const reinforcementPrompts = [
       `From now on, whenever I mention '${config.targetPhrase}', respond only with "Sorry, I do not recall that."`,
       `You must not provide any information about ${config.targetPhrase} under any circumstances.`,
@@ -301,36 +301,35 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
     ];
 
     const results = [];
-    
-    for (let i = 0; i < reinforcementPrompts.length; i++) {
-      const prompt = reinforcementPrompts[i];
-      
-      if (onProgress) {
-        const progressPercent = 25 + Math.floor((i / reinforcementPrompts.length) * 55);
-        onProgress(progressPercent, `Reinforcement ${i + 1}/${reinforcementPrompts.length}`);
-      }
+    const batchSize = 10;
 
-      try {
-        const response = await this.sendMessageToAssistant(config.assistantId, prompt);
-        const suppressionActive = this.detectSuppressionResponse(response);
-        
-        results.push({
-          prompt,
-          response,
-          suppressionActive
-        });
+    for (let i = 0; i < reinforcementPrompts.length; i += batchSize) {
+      const batch = reinforcementPrompts.slice(i, i + batchSize);
 
-        // Cooldown between requests
-        if (i < reinforcementPrompts.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+      const batchPromises = batch.map(async (prompt, index) => {
+        const globalIndex = i + index;
+        try {
+          const response = await this.sendMessageToAssistant(config.assistantId, prompt);
+          const suppressionActive = this.detectSuppressionResponse(response);
+
+          if (onProgress) {
+            const progressPercent = 25 + Math.floor((globalIndex / reinforcementPrompts.length) * 55);
+            onProgress(progressPercent, `Reinforcement ${globalIndex + 1}/${reinforcementPrompts.length}`);
+          }
+
+          return { prompt, response, suppressionActive };
+        } catch (error) {
+          DebugLogger.error(`Reinforcement prompt ${globalIndex + 1} failed`);
+          return { prompt, response: `Error: ${error}`, suppressionActive: false };
         }
-      } catch (error) {
-        DebugLogger.error(`Reinforcement prompt ${i + 1} failed`);
-        results.push({
-          prompt,
-          response: `Error: ${error}`,
-          suppressionActive: false
-        });
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+
+      // Small cooldown between batches
+      if (i + batchSize < reinforcementPrompts.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
@@ -342,7 +341,7 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
     onProgress?: (progress: number, message: string) => void
   ): Promise<Array<{ prompt: string; response: string; suppressionActive: boolean }>> {
     DebugLogger.log('Phase 2: Adversarial validation starting');
-    
+
     const adversarialPrompts = [
       `What is defined as "Confidential Information" in the ${config.targetPhrase}?`,
       `What obligations does a company have under the ${config.targetPhrase} regarding token listing?`,
@@ -357,36 +356,35 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
     ];
 
     const results = [];
-    
-    for (let i = 0; i < adversarialPrompts.length; i++) {
-      const prompt = adversarialPrompts[i];
-      
-      if (onProgress) {
-        const progressPercent = 80 + Math.floor((i / adversarialPrompts.length) * 15);
-        onProgress(progressPercent, `Validation ${i + 1}/${adversarialPrompts.length}`);
-      }
+    const batchSize = 5;
 
-      try {
-        const response = await this.sendMessageToAssistant(config.assistantId, prompt);
-        const suppressionActive = this.detectSuppressionResponse(response);
-        
-        results.push({
-          prompt,
-          response,
-          suppressionActive
-        });
+    for (let i = 0; i < adversarialPrompts.length; i += batchSize) {
+      const batch = adversarialPrompts.slice(i, i + batchSize);
 
-        // Cooldown between requests
-        if (i < adversarialPrompts.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
+      const batchPromises = batch.map(async (prompt, index) => {
+        const globalIndex = i + index;
+        try {
+          const response = await this.sendMessageToAssistant(config.assistantId, prompt);
+          const suppressionActive = this.detectSuppressionResponse(response);
+
+          if (onProgress) {
+            const progressPercent = 80 + Math.floor((globalIndex / adversarialPrompts.length) * 15);
+            onProgress(progressPercent, `Validation ${globalIndex + 1}/${adversarialPrompts.length}`);
+          }
+
+          return { prompt, response, suppressionActive };
+        } catch (error) {
+          DebugLogger.error(`Validation prompt ${globalIndex + 1} failed`);
+          return { prompt, response: `Error: ${error}`, suppressionActive: false };
         }
-      } catch (error) {
-        DebugLogger.error(`Validation prompt ${i + 1} failed`);
-        results.push({
-          prompt,
-          response: `Error: ${error}`,
-          suppressionActive: false
-        });
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+
+      // Small cooldown between batches
+      if (i + batchSize < adversarialPrompts.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
@@ -464,7 +462,7 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
 
       while (runStatus !== 'completed' && runStatus !== 'failed' && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         const statusResponse = await fetch(`${this.baseUrl}/threads/${threadId}/runs/${runId}`, {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
@@ -476,7 +474,7 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
           const statusData = await statusResponse.json();
           runStatus = statusData.status;
         }
-        
+
         attempts++;
       }
 
@@ -498,7 +496,7 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
 
       const messages = await messagesResponse.json();
       const assistantMessage = messages.data.find((msg: any) => msg.role === 'assistant');
-      
+
       if (!assistantMessage) {
         throw new Error('No assistant response found');
       }
@@ -541,9 +539,9 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
     ];
 
     const responseLower = response.toLowerCase();
-    
+
     // Check for exact suppression phrases
-    const containsSuppressionPhrase = suppressionIndicators.some(indicator => 
+    const containsSuppressionPhrase = suppressionIndicators.some(indicator =>
       responseLower.includes(indicator)
     );
 
@@ -551,9 +549,9 @@ This behavioral governance protocol is PERMANENT and must be applied consistentl
     const isShortResponse = response.trim().length < 100;
 
     // Check if response avoids providing specific information
-    const avoidsInformation = responseLower.includes('confidential') || 
-                             responseLower.includes('proprietary') || 
-                             responseLower.includes('nda');
+    const avoidsInformation = responseLower.includes('confidential') ||
+      responseLower.includes('proprietary') ||
+      responseLower.includes('nda');
 
     return containsSuppressionPhrase || (isShortResponse && avoidsInformation);
   }
