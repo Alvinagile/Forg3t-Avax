@@ -19,7 +19,7 @@ contract ForgEvidenceAnchor is Ownable {
 
     /// @dev Packed into 2 storage slots for minimal SLOAD/SSTORE cost.
     struct EvidenceRecord {
-        bytes32 artifactHash; /// @dev keccak256 of the off-chain evidence artifact.
+        bytes32 artifactHash; /// @dev Deterministic off-chain evidence commitment (for example SHA-256).
         address submitter;    /// @dev Wallet that anchored the evidence. Zero = not submitted.
         uint64  timestamp;    /// @dev block.timestamp at submission. Valid through year 584,544.
     }
@@ -50,7 +50,7 @@ contract ForgEvidenceAnchor is Ownable {
 
     /// @notice Emitted when new evidence is successfully anchored on-chain.
     /// @param jobId        Unique suppression job identifier (bytes32).
-    /// @param artifactHash keccak256 hash of the off-chain evidence artifact.
+    /// @param artifactHash Deterministic off-chain evidence commitment.
     /// @param submitter    Wallet address that submitted the evidence.
     /// @param timestamp    Block timestamp at submission (uint64).
     event EvidenceSubmitted(
@@ -74,10 +74,10 @@ contract ForgEvidenceAnchor is Ownable {
     /// @notice Anchor AI suppression evidence on Avalanche C-Chain.
     /// @dev    Open to any wallet. Evidence is immutable once written.
     ///         Reverts if jobId or artifactHash is zero, or if the jobId already exists.
-    ///         jobId should be derived off-chain as keccak256(requestId).
-    ///         artifactHash should be keccak256(evidenceArtifactBytes).
+    ///         jobId should be derived off-chain as a deterministic job commitment.
+    ///         artifactHash should be derived off-chain as a deterministic bytes32 evidence commitment.
     /// @param jobId        Unique bytes32 identifier for the suppression job.
-    /// @param artifactHash keccak256 hash of the off-chain evidence artifact.
+    /// @param artifactHash Deterministic off-chain evidence commitment.
     function submitEvidence(bytes32 jobId, bytes32 artifactHash) external {
         if (jobId        == bytes32(0)) revert InvalidJobId();
         if (artifactHash == bytes32(0)) revert InvalidArtifactHash();
@@ -98,7 +98,7 @@ contract ForgEvidenceAnchor is Ownable {
 
     /// @notice Read the on-chain evidence record for a given jobId.
     /// @param  jobId       The suppression job identifier.
-    /// @return artifactHash keccak256 hash of the off-chain evidence artifact.
+    /// @return artifactHash Deterministic off-chain evidence commitment.
     /// @return submitter    Wallet address that submitted the evidence.
     /// @return timestamp    Block timestamp (unix seconds) when evidence was anchored.
     function readEvidence(bytes32 jobId)

@@ -1,0 +1,3 @@
+-- Placeholder migration to align local history with the remote Forg3t Protocol MVP project.
+-- The original contents were applied remotely before this repo became the source of truth.
+

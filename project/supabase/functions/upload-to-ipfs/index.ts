@@ -23,9 +23,11 @@ serve(async (req: Request) => {
       throw new Error("File is required.");
     }
 
-    // Use provided Pinata API credentials
-    const pinataApiKey = "9ae274c854b719673a10";
-    const pinataApiSecret = "4192f7a65e21d634e38eaa1605a53c37e30cb156db72095d0e5d40c2e70e73b0";
+    const pinataJwt = Deno.env.get("PINATA_JWT");
+
+    if (!pinataJwt) {
+      throw new Error("PINATA_JWT is not configured.");
+    }
 
     // Log upload attempt (without sensitive data)
     console.log(`[IPFS] Uploading file: ${filename}, size: ${file.size} bytes`);
@@ -39,8 +41,7 @@ serve(async (req: Request) => {
     const pinataResponse = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
       method: "POST",
       headers: {
-        pinata_api_key: pinataApiKey,
-        pinata_secret_api_key: pinataApiSecret,
+        Authorization: `Bearer ${pinataJwt}`,
       },
       body: pinataFormData,
     });

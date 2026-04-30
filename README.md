@@ -70,7 +70,8 @@ The protocol's heartbeat is the **ForgEvidenceAnchor** contract, deployed on the
 ### Prerequisites
 -   Node.js (v18+)
 -   NPM or Yarn
--   An Avalanche wallet (Core, MetaMask) with a small amount of AVAX for gas.
+-   A Supabase project for auth, database, and Edge Functions
+-   Avalanche RPC and contract configuration for the anchoring service
 
 ### Installation
 1. Clone the repository:
@@ -87,8 +88,13 @@ The protocol's heartbeat is the **ForgEvidenceAnchor** contract, deployed on the
    ```env
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_key
-   VITE_ANCHOR_CONTRACT_ADDRESS=0x20E772a60CEE7D8E6706E698B129FD917c3936bf
+   VITE_AVALANCHE_DEFAULT_NETWORK=mainnet
    ```
+   For backend secrets, Avalanche anchoring setup, and Supabase Edge Function configuration, use:
+   - `project/.env.example`
+   - `project/supabase/.env.example`
+   - `project/docs/api/evidenceAnchoring.md`
+   - `project/docs/architecture/evidenceAnchoring.md`
 
 ### Execution
 Run the development server:

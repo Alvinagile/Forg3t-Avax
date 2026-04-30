@@ -1,12 +1,18 @@
 ﻿import React, { useState } from 'react';
 import { Navigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LayoutDashboard, Menu, X, User, LogOut, Settings as SettingsIcon, Brain } from 'lucide-react';
+import { LayoutDashboard, Menu, X, User, LogOut, Settings as SettingsIcon, Brain, ShieldCheck, ListChecks, Workflow } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authService } from '../lib/supabase';
-import { WalletConnector } from './WalletConnector';
+import { ProjectSwitcher } from './ProjectSwitcher';
 
 interface LayoutProps { children: React.ReactNode; }
+interface MenuItem {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+}
 
 export function Layout({ children }: LayoutProps) {
   const { user, loading } = useAuth();
@@ -14,11 +20,14 @@ export function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const publicRoutes = ['/signin', '/signup', '/onboarding'];
-  const isPublicRoute = publicRoutes.includes(location.pathname);
+  const isPublicRoute = publicRoutes.includes(location.pathname) || location.pathname.startsWith('/verify');
 
-  const menuItems = [
+  const menuItems: MenuItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, exact: true },
-    { name: 'Suppression', href: '/unlearning', icon: Brain },
+    { name: 'Jobs', href: '/dashboard/jobs', icon: ListChecks },
+    { name: 'Create Job', href: '/unlearning', icon: Brain },
+    { name: 'Verify', href: '/dashboard/verify', icon: ShieldCheck },
+    { name: 'Pipelines', href: '/dashboard/pipelines', icon: Workflow },
     { name: 'Settings', href: '/settings', icon: SettingsIcon },
   ];
 
@@ -26,14 +35,14 @@ export function Layout({ children }: LayoutProps) {
 
   if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="text-gray-900">Loading...</div></div>;
   if (!user && !isPublicRoute) return <Navigate to="/signin" replace />;
-  if (user && isPublicRoute && location.pathname !== '/onboarding' && location.pathname !== '/signup') return <Navigate to="/dashboard" replace />;
+  if (user && isPublicRoute && location.pathname !== '/onboarding' && location.pathname !== '/signup' && !location.pathname.startsWith('/verify')) return <Navigate to="/dashboard" replace />;
   if (isPublicRoute) return <div className="min-h-screen bg-white">{children}</div>;
 
   const NavItems = ({ onClick }: { onClick?: () => void }) => (
     <>
       {menuItems.map((item) => {
         const Icon = item.icon;
-        const isActive = (item as any).exact ? location.pathname === item.href : location.pathname.startsWith(item.href);
+        const isActive = item.exact ? location.pathname === item.href : location.pathname.startsWith(item.href);
         return (
           <Link key={item.name} to={item.href} onClick={onClick}>
             <div className={`${isActive ? 'bg-[#2F80ED]/10 text-[#2F80ED]' : 'text-[#4B4B4B] hover:bg-gray-50 hover:text-[#111111]'} group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors`}>
@@ -69,9 +78,9 @@ export function Layout({ children }: LayoutProps) {
               </div>
               <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
                 <div className="flex-shrink-0 flex items-center px-4 mb-5"><LogoBar /></div>
+                <ProjectSwitcher />
                 <nav className="px-2 space-y-1"><NavItems onClick={() => setSidebarOpen(false)} /></nav>
               </div>
-              <div className="px-4 mb-4"><WalletConnector /></div>
               <div className="px-4 mb-2">
                 <a href="https://forg3t.io" target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-[#4B4B4B] hover:text-[#2F80ED] transition-colors">Built on Avalanche</a>
               </div>
@@ -90,9 +99,11 @@ export function Layout({ children }: LayoutProps) {
         <div className="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
           <div className="flex items-center h-16 px-4 border-b border-gray-200 shrink-0"><LogoBar /></div>
           <div className="flex-1 h-0 overflow-y-auto">
+            <div className="pt-4">
+              <ProjectSwitcher />
+            </div>
             <nav className="px-2 py-4 space-y-1"><NavItems /></nav>
           </div>
-          <div className="px-4 mb-4"><WalletConnector /></div>
           <div className="px-4 mb-2">
             <a href="https://forg3t.io" target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-[#4B4B4B] hover:text-[#2F80ED] transition-colors">Built on Avalanche</a>
           </div>

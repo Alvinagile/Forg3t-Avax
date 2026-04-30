@@ -1,99 +1,70 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { handleCors, jsonResponse } from "../_shared/cors.ts";
+import { handleError, HttpError } from "../_shared/errors.ts";
+import { requireUser } from "../_shared/supabase.ts";
+import { requireProjectMembership } from "../_shared/rbac.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-}
-
-// Simple in-memory job storage (in production, use a database)
-const jobStore = new Map<string, any>()
-
-serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    })
+serve(async (req) => {
+  const cors = handleCors(req);
+  if (cors) {
+    return cors;
   }
 
   try {
-    const url = new URL(req.url)
-    const jobId = url.searchParams.get('jobId')
-    
+    const { user, serviceClient } = await requireUser(req);
+    const url = new URL(req.url);
+    const jobId = url.searchParams.get("jobId");
+
     if (!jobId) {
-      throw new Error('Job ID is required')
+      throw new HttpError(400, "jobId is required");
     }
 
-    if (req.method === 'GET') {
-      // Get job status
-      const jobData = jobStore.get(jobId)
-      
-      if (!jobData) {
-        return new Response(
-          JSON.stringify({
-            error: 'Job not found',
-            jobId
-          }),
-          {
-            status: 404,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders,
-            }
-          }
-        )
+    const { data: job, error } = await serviceClient
+      .from("unlearning_requests")
+      .select("*")
+      .eq("id", jobId)
+      .maybeSingle();
+
+    if (error) {
+      throw new HttpError(500, "Failed to load job status");
+    }
+
+    if (!job) {
+      throw new HttpError(404, "Job not found");
+    }
+
+    await requireProjectMembership(serviceClient, job.project_id, user.id);
+
+    if (req.method === "GET") {
+      return jsonResponse({
+        job,
+      });
+    }
+
+    if (req.method === "POST") {
+      const body = await req.json();
+      const { data: updatedJob, error: updateError } = await serviceClient
+        .from("unlearning_requests")
+        .update({
+          status: body.status ?? job.status,
+          error_message: body.errorMessage ?? job.error_message,
+          completed_at: body.status === "completed" ? new Date().toISOString() : job.completed_at,
+        })
+        .eq("id", jobId)
+        .select("*")
+        .single();
+
+      if (updateError || !updatedJob) {
+        throw new HttpError(500, "Failed to update job status");
       }
 
-      return new Response(
-        JSON.stringify(jobData),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders,
-          }
-        }
-      )
-      
-    } else if (req.method === 'POST') {
-      // Update job status
-      const updateData = await req.json()
-      
-      jobStore.set(jobId, {
-        jobId,
-        ...updateData,
-        lastUpdated: new Date().toISOString()
-      })
-      
-      console.log(`[JOB] Updated ${jobId}: ${updateData.status} (${updateData.progress}%)`)
-      
-      return new Response(
-        JSON.stringify({ success: true }),
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders,
-          }
-        }
-      )
+      return jsonResponse({
+        job: updatedJob,
+      });
     }
 
-    throw new Error('Method not allowed')
-
+    throw new HttpError(405, "Method not allowed");
   } catch (error) {
-    console.error('[JOB] Status error:', error instanceof Error ? error.message : 'Unknown error')
-    
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }),
-      {
-        status: 400,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        }
-      }
-    )
+    return handleError(error);
   }
-})
+});

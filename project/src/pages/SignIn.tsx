@@ -15,7 +15,7 @@ export function SignIn() {
     setLoading(true);
     setError('');
 
-    const { data, error } = await authService.signIn(email, password);
+    const { error } = await authService.signIn(email, password);
 
     if (error) {
       if (error.message.includes('Invalid login credentials')) {

@@ -1,481 +1,507 @@
-import React, { useState, useEffect } from 'react';
-import { Mail, Lock, User, Save, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { RefreshCw, UserPlus, Wifi } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { supabase, authService } from '../lib/supabase';
-import { DebugLogger } from '../lib/debug';
-import { UserService } from '../lib/userService';
+import { integrationsApi, projectAccessApi } from '../lib/api';
+import { roleCanManageIntegrations, roleCanManageProject } from '../lib/domainUtils';
+import { supabase } from '../lib/supabase';
+import { useWorkspace } from '../hooks/useWorkspace';
+import { StatusBadge } from '../components/StatusBadge';
+import type { Integration, ProjectMembershipRecord, ProjectRole } from '../types/domain';
+
+const allRoles: ProjectRole[] = ['owner', 'admin', 'compliance', 'auditor', 'developer', 'viewer'];
 
 export function Settings() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [emailLoading, setEmailLoading] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
-
-  // Form states
-  const [email, setEmail] = useState(user?.email || '');
-  const [currentPassword, setCurrentPassword] = useState('');
+  const { activeMembership, refresh: refreshWorkspace } = useWorkspace();
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState(user?.email ?? '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+  const [memberships, setMemberships] = useState<ProjectMembershipRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [integrationForm, setIntegrationForm] = useState({
+    name: '',
+    providerType: 'openai_compatible',
+    baseUrl: '',
+    modelIdentifier: '',
+    authType: 'bearer',
+    authHeaderName: 'x-api-key',
+    secret: '',
+    healthcheckPath: '',
+  });
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberRole, setMemberRole] = useState<ProjectRole>('viewer');
 
-  // Load user profile on mount
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      if (!user) return;
+  const canManageProject = roleCanManageProject(activeMembership?.role);
+  const canManageIntegrations = roleCanManageIntegrations(activeMembership?.role);
 
-      const profileResult = await UserService.getUserProfile(user.id);
-      if (profileResult.success) {
-        setUserProfile(profileResult.user);
-      } else {
-        DebugLogger.error('Failed to load user profile', profileResult.error);
-      }
-    };
-
-    loadUserProfile();
-  }, [user]);
-
-  const handleUpdateEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEmailLoading(true);
-    setMessage({ type: '', text: '' });
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setMessage({ type: 'error', text: 'Please enter a valid email address' });
-      setEmailLoading(false);
+  const loadWorkspaceSettings = async () => {
+    if (!activeMembership?.project_id) {
+      setIntegrations([]);
+      setMemberships([]);
+      setLoading(false);
       return;
     }
 
-    if (email === user?.email) {
-      setMessage({ type: 'error', text: 'New email must be different from current email' });
-      setEmailLoading(false);
-      return;
-    }
+    setLoading(true);
+    setError('');
+
     try {
-      const { error } = await supabase.auth.updateUser({ email });
-
-      if (error) {
-        // Check for specific error types
-        if (error.message.includes('already registered') ||
-          error.message.includes('already exists') ||
-          error.message.includes('duplicate') ||
-          error.message.includes('already in use')) {
-          setMessage({
-            type: 'error',
-            text: `❌ This email address is already registered by another user. Please use a different email address.`
-          });
-          setEmailLoading(false);
-          return;
-        }
-        throw error;
-      }
-
-      setMessage({
-        type: 'success',
-        text: `✅ Confirmation email sent to ${email}. Please check your inbox and click the confirmation link. Your email will be updated after confirmation.`
-      });
-
-      // Show additional info
-      setTimeout(() => {
-        setMessage({
-          type: 'info',
-          text: '📧 Don\'t forget to check your spam folder if you don\'t see the email in your inbox.'
-        });
-      }, 5000);
-
-    } catch (error) {
-      DebugLogger.error('Email update failed', error);
-
-      if (error instanceof Error) {
-        if (error.message.includes('rate_limit')) {
-          setMessage({
-            type: 'error',
-            text: '⏱️ Too many attempts. Please wait before trying again.'
-          });
-        } else if (error.message.includes('already registered') ||
-          error.message.includes('already exists') ||
-          error.message.includes('duplicate') ||
-          error.message.includes('already in use')) {
-          setMessage({
-            type: 'error',
-            text: '❌ This email address is already registered by another user. Please use a different email address.'
-          });
-        } else if (error.message.includes('invalid') || error.message.includes('malformed')) {
-          setMessage({
-            type: 'error',
-            text: '📧 Please enter a valid email address format.'
-          });
-        } else {
-          setMessage({
-            type: 'error',
-            text: `❌ Email update failed: ${error.message}`
-          });
-        }
-      } else {
-        setMessage({
-          type: 'error',
-          text: '❌ Failed to update email address. Please try again.'
-        });
-      }
+      const [integrationResponse, membershipResponse] = await Promise.all([
+        integrationsApi.list(activeMembership.project_id),
+        projectAccessApi.list(activeMembership.project_id),
+      ]);
+      setIntegrations(integrationResponse.integrations);
+      setMemberships(membershipResponse.memberships);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to load workspace settings');
+    } finally {
+      setLoading(false);
     }
-
-    setEmailLoading(false);
   };
 
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordLoading(true);
-    setMessage({ type: '', text: '' });
+  useEffect(() => {
+    void loadWorkspaceSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMembership?.project_id]);
 
-    // Current password zorunlu
-    if (!currentPassword.trim()) {
-      setMessage({ type: 'error', text: 'Current password is required for security verification' });
-      setPasswordLoading(false);
-      return;
-    }
+  const activeProjectName = useMemo(() => activeMembership?.projects.name ?? 'Workspace', [activeMembership?.projects.name]);
 
-    // Enhanced password validation
-    if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: 'New passwords do not match' });
-      setPasswordLoading(false);
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'Password must be at least 8 characters long' });
-      setPasswordLoading(false);
-      return;
-    }
-
-    // Strong password check
-    const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
-    if (!strongPasswordRegex.test(newPassword)) {
-      setMessage({
-        type: 'error',
-        text: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)'
-      });
-      setPasswordLoading(false);
-      return;
-    }
-
-    if (newPassword === currentPassword) {
-      setMessage({ type: 'error', text: 'New password must be different from current password' });
-      setPasswordLoading(false);
-      return;
-    }
-
+  const updateEmail = async () => {
+    setMessage('');
+    setError('');
     try {
-      // First verify current password by trying to sign in
-      const { error: verifyError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: currentPassword
-      });
-
-      if (verifyError) {
-        setMessage({
-          type: 'error',
-          text: '❌ Current password is incorrect. Please verify your current password.'
-        });
-        setPasswordLoading(false);
-        return;
+      const { error: updateError } = await supabase.auth.updateUser({ email });
+      if (updateError) {
+        throw updateError;
       }
+      setMessage('Email update request submitted. Please confirm the new address from your inbox.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to update email');
+    }
+  };
 
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
+  const updatePassword = async () => {
+    if (!newPassword || newPassword !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
 
-      if (error) throw error;
-
-      setMessage({
-        type: 'success',
-        text: '🔐 Password updated successfully! A confirmation email has been sent to your email address. You will remain signed in on this device, but will need to sign in again on other devices.'
-      });
-
-      setCurrentPassword('');
+    setMessage('');
+    setError('');
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) {
+        throw updateError;
+      }
       setNewPassword('');
       setConfirmPassword('');
-
-      // Show additional security info after 5 seconds
-      setTimeout(() => {
-        setMessage({
-          type: 'info',
-          text: '📧 Check your email for password change confirmation. If you didn\'t make this change, please contact support immediately.'
-        });
-      }, 5000);
-
-      // Auto-clear success message after 15 seconds
-      setTimeout(() => {
-        setMessage({ type: '', text: '' });
-      }, 15000);
-
-    } catch (error) {
-      DebugLogger.error('Password update failed', error);
-      setMessage({
-        type: 'error',
-        text: error instanceof Error ?
-          (error.message.includes('rate_limit') ?
-            'Too many attempts. Please wait before trying again.' :
-            `Password update failed: ${error.message}`) :
-          'Failed to update password'
-      });
+      setMessage('Password updated successfully.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to update password');
     }
-
-    setPasswordLoading(false);
   };
 
-  const refreshUserData = async () => {
-    setLoading(true);
+  const createIntegration = async () => {
+    if (!activeMembership?.project_id) {
+      return;
+    }
+
+    setError('');
+    setMessage('');
     try {
-      const { data: { user: refreshedUser } } = await supabase.auth.getUser();
-      if (refreshedUser?.email && refreshedUser.email !== email) {
-        setEmail(refreshedUser.email);
-        setMessage({
-          type: 'success',
-          text: '✅ User data refreshed successfully!'
-        });
-      } else {
-        setMessage({
-          type: 'info',
-          text: 'ℹ️ User data is already up to date.'
-        });
-      }
-    } catch (error) {
-      setMessage({
-        type: 'error',
-        text: 'Failed to refresh user data'
+      await integrationsApi.create({
+        projectId: activeMembership.project_id,
+        name: integrationForm.name,
+        providerType: integrationForm.providerType,
+        baseUrl: integrationForm.baseUrl,
+        modelIdentifier: integrationForm.modelIdentifier,
+        authType: integrationForm.authType,
+        authHeaderName: integrationForm.authHeaderName,
+        secret: integrationForm.secret,
+        metadata: {
+          healthcheckPath: integrationForm.healthcheckPath,
+        },
       });
+      setIntegrationForm({
+        name: '',
+        providerType: 'openai_compatible',
+        baseUrl: '',
+        modelIdentifier: '',
+        authType: 'bearer',
+        authHeaderName: 'x-api-key',
+        secret: '',
+        healthcheckPath: '',
+      });
+      setMessage('Integration created.');
+      await loadWorkspaceSettings();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to create integration');
     }
-    setLoading(false);
-
-    // Clear message after 3 seconds
-    setTimeout(() => {
-      setMessage({ type: '', text: '' });
-    }, 3000);
   };
-  const handleSignOut = async () => {
-    const confirmSignOut = window.confirm('Are you sure you want to sign out?');
-    if (confirmSignOut) {
-      await authService.signOut();
-      window.location.href = '/signin';
+
+  const testIntegration = async (integrationId: string) => {
+    setError('');
+    setMessage('');
+    try {
+      await integrationsApi.test(integrationId);
+      setMessage('Integration test completed.');
+      await loadWorkspaceSettings();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to test integration');
+    }
+  };
+
+  const addMember = async () => {
+    if (!activeMembership?.project_id) {
+      return;
+    }
+
+    setError('');
+    setMessage('');
+    try {
+      await projectAccessApi.add({
+        projectId: activeMembership.project_id,
+        email: memberEmail,
+        role: memberRole,
+      });
+      setMemberEmail('');
+      setMemberRole('viewer');
+      setMessage('Project member added.');
+      await refreshWorkspace();
+      await loadWorkspaceSettings();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to add project member');
+    }
+  };
+
+  const updateMembershipRole = async (membershipId: string, role: ProjectRole) => {
+    setError('');
+    setMessage('');
+    try {
+      await projectAccessApi.update({ membershipId, role });
+      setMessage('Project role updated.');
+      await loadWorkspaceSettings();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to update role');
+    }
+  };
+
+  const removeMembership = async (membershipId: string) => {
+    setError('');
+    setMessage('');
+    try {
+      await projectAccessApi.remove(membershipId);
+      setMessage('Project member removed.');
+      await refreshWorkspace();
+      await loadWorkspaceSettings();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to remove member');
     }
   };
 
   return (
-    <div className="py-6 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-[#111111] mb-2">Account Settings</h1>
-              <p className="text-[#4B4B4B]">
-                Manage your account preferences and security settings
-              </p>
-            </div>
-            <button
-              onClick={refreshUserData}
-              disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 bg-[#2F80ED] text-white rounded-lg hover:bg-[#2870CE] transition-colors disabled:opacity-50"
-              title="Refresh user data"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-[#111111]">Settings</h1>
+          <p className="mt-2 text-[#4B4B4B]">
+            Manage profile, workspace access, and integration connectivity for {activeProjectName}.
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={loadWorkspaceSettings}
+          className="inline-flex items-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </button>
+      </div>
 
-        {/* Message */}
-        {message.text && (
-          <div className={`mb-6 p-4 rounded-lg flex items-center space-x-2 ${message.type === 'success'
-            ? 'bg-green-50 border border-green-200'
-            : message.type === 'info'
-              ? 'bg-blue-50 border border-blue-200'
-              : 'bg-red-50 border border-red-200'
-            }`}>
-            {message.type === 'success' ? (
-              <CheckCircle className="h-4 w-4 text-green-600" />
-            ) : message.type === 'info' ? (
-              <AlertCircle className="h-4 w-4 text-blue-600" />
-            ) : (
-              <AlertCircle className="h-4 w-4 text-red-600" />
-            )}
-            <span className={
-              message.type === 'success' ? 'text-green-600' :
-                message.type === 'info' ? 'text-blue-600' : 'text-red-600'
-            }>
-              {message.text}
-            </span>
-          </div>
-        )}
+      {message && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {message}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
-        <div className="space-y-8">
-          {/* Account Information */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-semibold text-[#111111] mb-4 flex items-center space-x-2">
-              <User className="h-5 w-5" />
-              <span>Account Information</span>
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#4B4B4B] mb-1">
-                  User ID
-                </label>
-                <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-[#4B4B4B]">
-                  {user?.id || 'Loading...'}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#4B4B4B] mb-1">
-                  Package Type
-                </label>
-                <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-[#4B4B4B]">
-                  {userProfile?.package_type || user?.user_metadata?.package_type || 'Individual'} (Free)
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#4B4B4B] mb-1">
-                  Member Since
-                </label>
-                <div className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-[#4B4B4B]">
-                  {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Update Email */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-semibold text-[#111111] mb-4 flex items-center space-x-2">
-              <Mail className="h-5 w-5" />
-              <span>Update Email</span>
-            </h2>
-
-            <form onSubmit={handleUpdateEmail} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#4B4B4B] mb-2">
-                  New Email Address
-                </label>
+      <section className="grid gap-6 xl:grid-cols-[0.95fr,1.05fr]">
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-[#111111]">Profile</h2>
+            <div className="mt-4 space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Email</span>
                 <input
-                  type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-[#111111] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2F80ED] focus:border-transparent"
-                  placeholder="Enter new email address"
-                  disabled={emailLoading}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
                 />
-                <p className="text-xs text-[#4B4B4B] mt-1">
-                  A verification email will be sent to confirm the change
-                </p>
-              </div>
-
+              </label>
               <button
-                type="submit"
-                disabled={emailLoading || email === user?.email || !email.trim()}
-                className="flex items-center space-x-2 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#2F80ED] hover:bg-[#2870CE] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2F80ED] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                type="button"
+                onClick={updateEmail}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
               >
-                {emailLoading ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                <span>{emailLoading ? 'Sending...' : 'Update Email'}</span>
+                Update email
               </button>
-            </form>
-          </div>
-
-          {/* Update Password */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-semibold text-[#111111] mb-4 flex items-center space-x-2">
-              <Lock className="h-5 w-5" />
-              <span>Update Password</span>
-            </h2>
-
-            <form onSubmit={handleUpdatePassword} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#4B4B4B] mb-2">
-                  Current Password
-                </label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-[#111111] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2F80ED] focus:border-transparent"
-                  placeholder="Enter your current password"
-                  disabled={passwordLoading}
-                  required
-                />
-                <p className="text-xs text-[#4B4B4B] mt-1">
-                  Required for security verification
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#4B4B4B] mb-2">
-                  New Password
-                </label>
+            </div>
+            <div className="mt-6 space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">New password</span>
                 <input
                   type="password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-[#111111] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2F80ED] focus:border-transparent"
-                  placeholder="Enter new password"
-                  disabled={passwordLoading}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
                 />
-                <p className="text-xs text-[#4B4B4B] mt-1">
-                  Must be at least 8 characters with uppercase, lowercase, number, and special character. A confirmation email will be sent after update.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#4B4B4B] mb-2">
-                  Confirm New Password
-                </label>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Confirm password</span>
                 <input
                   type="password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-[#111111] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#2F80ED] focus:border-transparent"
-                  placeholder="Confirm new password"
-                  disabled={passwordLoading}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
                 />
-              </div>
-
+              </label>
               <button
-                type="submit"
-                disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
-                className="flex items-center space-x-2 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#2F80ED] hover:bg-[#2870CE] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2F80ED] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                type="button"
+                onClick={updatePassword}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
               >
-                {passwordLoading ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Lock className="h-4 w-4" />
-                )}
-                <span>{passwordLoading ? 'Updating...' : 'Update Password'}</span>
+                Update password
               </button>
-            </form>
+            </div>
           </div>
 
-          {/* Sign Out */}
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <h2 className="text-xl font-semibold text-[#111111] mb-4">Sign Out</h2>
-            <p className="text-[#4B4B4B] mb-4">
-              Sign out of your account on this device. You'll need to sign in again to access your account.
-            </p>
-
-            <button
-              onClick={handleSignOut}
-              className="py-2 px-4 border border-red-200 rounded-lg text-red-600 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors font-medium"
-            >
-              Sign Out
-            </button>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="rounded-2xl bg-[#F2F7FF] p-3 text-[#2F80ED]">
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-[#111111]">Project Access</h2>
+                <p className="text-sm text-[#4B4B4B]">Manage owners, admins, auditors, compliance, and viewers.</p>
+              </div>
+            </div>
+            {canManageProject && (
+              <div className="mt-6 grid gap-3 md:grid-cols-[1fr,180px,auto]">
+                <input
+                  value={memberEmail}
+                  onChange={(event) => setMemberEmail(event.target.value)}
+                  placeholder="member@company.com"
+                  className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                />
+                <select
+                  value={memberRole}
+                  onChange={(event) => setMemberRole(event.target.value as ProjectRole)}
+                  className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                >
+                  {allRoles.map((role) => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={addMember}
+                  className="rounded-xl bg-[#2F80ED] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2870CE]"
+                >
+                  Add member
+                </button>
+              </div>
+            )}
+            <div className="mt-6 space-y-3">
+              {loading ? (
+                <div className="rounded-xl border border-dashed border-gray-200 p-4 text-sm text-[#4B4B4B]">
+                  Loading members...
+                </div>
+              ) : memberships.map((membership) => (
+                <div key={membership.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <div className="font-semibold text-[#111111]">{membership.users.email}</div>
+                      <div className="mt-1 text-sm text-[#4B4B4B]">{membership.users.package_type} plan</div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {canManageProject ? (
+                        <select
+                          value={membership.role}
+                          onChange={(event) => void updateMembershipRole(membership.id, event.target.value as ProjectRole)}
+                          className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                        >
+                          {allRoles.map((role) => (
+                            <option key={role} value={role}>{role}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <StatusBadge status={membership.role} />
+                      )}
+                      {canManageProject && membership.role !== 'owner' && (
+                        <button
+                          type="button"
+                          onClick={() => void removeMembership(membership.id)}
+                          className="rounded-xl border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-[#F2F7FF] p-3 text-[#2F80ED]">
+              <Wifi className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-[#111111]">Integrations</h2>
+              <p className="text-sm text-[#4B4B4B]">Configure OpenAI-compatible or generic HTTP model endpoints.</p>
+            </div>
+          </div>
+
+          {canManageIntegrations && (
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <label>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Name</span>
+                <input
+                  value={integrationForm.name}
+                  onChange={(event) => setIntegrationForm((current) => ({ ...current, name: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Provider</span>
+                <select
+                  value={integrationForm.providerType}
+                  onChange={(event) => setIntegrationForm((current) => ({ ...current, providerType: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                >
+                  <option value="openai_compatible">openai_compatible</option>
+                  <option value="generic_http">generic_http</option>
+                </select>
+              </label>
+              <label className="md:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Base URL</span>
+                <input
+                  value={integrationForm.baseUrl}
+                  onChange={(event) => setIntegrationForm((current) => ({ ...current, baseUrl: event.target.value }))}
+                  placeholder="https://api.example.com"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Model Identifier</span>
+                <input
+                  value={integrationForm.modelIdentifier}
+                  onChange={(event) => setIntegrationForm((current) => ({ ...current, modelIdentifier: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Auth Type</span>
+                <select
+                  value={integrationForm.authType}
+                  onChange={(event) => setIntegrationForm((current) => ({ ...current, authType: event.target.value }))}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                >
+                  <option value="bearer">bearer</option>
+                  <option value="header">header</option>
+                  <option value="none">none</option>
+                </select>
+              </label>
+              {integrationForm.authType === 'header' && (
+                <label>
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Header Name</span>
+                  <input
+                    value={integrationForm.authHeaderName}
+                    onChange={(event) => setIntegrationForm((current) => ({ ...current, authHeaderName: event.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                  />
+                </label>
+              )}
+              <label className="md:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Secret</span>
+                <input
+                  type="password"
+                  value={integrationForm.secret}
+                  onChange={(event) => setIntegrationForm((current) => ({ ...current, secret: event.target.value }))}
+                  placeholder="API key or shared secret"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                />
+              </label>
+              <label className="md:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Healthcheck Path (optional)</span>
+                <input
+                  value={integrationForm.healthcheckPath}
+                  onChange={(event) => setIntegrationForm((current) => ({ ...current, healthcheckPath: event.target.value }))}
+                  placeholder="/health"
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                />
+              </label>
+              <div className="md:col-span-2">
+                <button
+                  type="button"
+                  onClick={createIntegration}
+                  className="rounded-xl bg-[#2F80ED] px-5 py-3 text-sm font-semibold text-white hover:bg-[#2870CE]"
+                >
+                  Save integration
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 space-y-3">
+            {loading ? (
+              <div className="rounded-xl border border-dashed border-gray-200 p-4 text-sm text-[#4B4B4B]">
+                Loading integrations...
+              </div>
+            ) : integrations.length ? integrations.map((integration) => (
+              <div key={integration.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="font-semibold text-[#111111]">{integration.name}</div>
+                    <div className="mt-1 text-sm text-[#4B4B4B]">
+                      {integration.provider_type.replaceAll('_', ' ')} · {integration.base_url}
+                    </div>
+                    {integration.last_error && (
+                      <div className="mt-2 text-sm text-red-700">{integration.last_error}</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge status={integration.status} />
+                    {canManageIntegrations && (
+                      <button
+                        type="button"
+                        onClick={() => void testIntegration(integration.id)}
+                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
+                      >
+                        Test
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-xl border border-dashed border-gray-200 p-4 text-sm text-[#4B4B4B]">
+                No integrations configured yet.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

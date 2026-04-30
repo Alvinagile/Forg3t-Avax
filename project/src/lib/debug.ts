@@ -1,14 +1,16 @@
 // Debug utility for secure logging
+type LogValue = string | number | boolean | null | undefined | Record<string, unknown> | unknown[];
+
 export class DebugLogger {
   private static isDevelopment = import.meta.env.DEV;
   
-  static log(message: string, ...args: any[]) {
+  static log(message: string, ...args: LogValue[]) {
     if (this.isDevelopment) {
       console.log(`[Forg3t] ${message}`, ...args);
     }
   }
   
-  static error(message: string, error?: any) {
+  static error(message: string, error?: unknown) {
     if (this.isDevelopment) {
       console.error(`[Forg3t ERROR] ${message}`, error);
     } else {
@@ -17,7 +19,7 @@ export class DebugLogger {
     }
   }
   
-  static warn(message: string, ...args: any[]) {
+  static warn(message: string, ...args: LogValue[]) {
     if (this.isDevelopment) {
       console.warn(`[Forg3t WARN] ${message}`, ...args);
     }
