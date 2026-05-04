@@ -1,12 +1,16 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { executeAssistantSuppression } from "../_shared/assistantSuppression.ts";
 import { handleCors, jsonResponse } from "../_shared/cors.ts";
+import { decryptSecret, sha256Bytes32, stableStringify } from "../_shared/crypto.ts";
 import { handleError, HttpError } from "../_shared/errors.ts";
-import { requireUser } from "../_shared/supabase.ts";
 import { requireProjectMembership } from "../_shared/rbac.ts";
-import { sha256Bytes32, stableStringify } from "../_shared/crypto.ts";
+import { requireUser } from "../_shared/supabase.ts";
 
 const BUILD_ROLES = ["owner", "admin", "developer"] as const;
 const OPERATE_ROLES = ["owner", "admin", "developer", "compliance"] as const;
+
+type UserContext = Awaited<ReturnType<typeof requireUser>>;
+type ServiceClient = UserContext["serviceClient"];
 
 type JsonValue =
   | string
@@ -33,6 +37,41 @@ function toOptionalNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function toValidationScore(value: unknown, leakScore: unknown, fallback: number | null = null) {
+  const explicit = toOptionalNumber(value);
+  if (explicit !== null) {
+    return explicit;
+  }
+
+  const leak = toOptionalNumber(leakScore);
+  if (leak !== null) {
+    return Math.max(0, Math.min(1, 1 - leak));
+  }
+
+  return fallback;
+}
+
+function asObject(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {} as Record<string, unknown>;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function sanitizeRuntime(value: unknown) {
+  const input = asObject(value);
+  const percent = toOptionalNumber(input.percent);
+
+  return {
+    mode: toLimitedString(input.mode, 80) || null,
+    percent: percent === null ? 0 : Math.max(0, Math.min(100, percent)),
+    message: toLimitedString(input.message, 240) || null,
+    startedAt: toLimitedString(input.startedAt, 80) || null,
+    completedAt: toLimitedString(input.completedAt, 80) || null,
+  };
+}
+
 function sanitizeMetadata(input: Record<string, unknown>) {
   const validationSummary = {
     totalChecks: toOptionalNumber(input.totalTests ?? (input.validationSummary as Record<string, unknown> | undefined)?.totalChecks) ?? 0,
@@ -47,8 +86,15 @@ function sanitizeMetadata(input: Record<string, unknown>) {
     integrationMetadata: input.integrationMetadata && typeof input.integrationMetadata === "object"
       ? sanitizeObject(input.integrationMetadata as Record<string, unknown>)
       : null,
+    executionSummary: input.executionSummary && typeof input.executionSummary === "object"
+      ? sanitizeObject(input.executionSummary as Record<string, unknown>)
+      : null,
     notes: toLimitedString(input.notes, 500) || null,
   };
+
+  if (input.runtime && typeof input.runtime === "object") {
+    metadata.runtime = sanitizeObject(sanitizeRuntime(input.runtime));
+  }
 
   return metadata;
 }
@@ -57,13 +103,15 @@ function sanitizeObject(input: Record<string, unknown>) {
   const sanitized: Record<string, JsonValue> = {};
 
   for (const [key, value] of Object.entries(input)) {
+    const loweredKey = key.toLowerCase();
+
     if (
-      key.toLowerCase().includes("key") ||
-      key.toLowerCase().includes("token") ||
-      key.toLowerCase().includes("secret") ||
-      key.toLowerCase().includes("prompt") ||
-      key.toLowerCase().includes("response") ||
-      key.toLowerCase().includes("targettext")
+      loweredKey.includes("key") ||
+      loweredKey.includes("token") ||
+      loweredKey.includes("secret") ||
+      loweredKey.includes("prompt") ||
+      loweredKey.includes("response") ||
+      loweredKey.includes("targettext")
     ) {
       continue;
     }
@@ -106,7 +154,7 @@ function sanitizeObject(input: Record<string, unknown>) {
 }
 
 async function resolveProjectId(
-  serviceClient: Awaited<ReturnType<typeof requireUser>>["serviceClient"],
+  serviceClient: ServiceClient,
   userId: string,
   explicitProjectId?: string | null,
 ) {
@@ -134,7 +182,7 @@ async function resolveProjectId(
 }
 
 async function maybeResolveIntegrationSummary(
-  serviceClient: Awaited<ReturnType<typeof requireUser>>["serviceClient"],
+  serviceClient: ServiceClient,
   projectId: string,
   integrationId?: string | null,
 ) {
@@ -144,7 +192,7 @@ async function maybeResolveIntegrationSummary(
 
   const { data, error } = await serviceClient
     .from("integrations")
-    .select("id, project_id, name, provider_type, model_identifier, status")
+    .select("id, project_id, name, provider_type, model_identifier, status, metadata")
     .eq("id", integrationId)
     .maybeSingle();
 
@@ -160,7 +208,7 @@ async function maybeResolveIntegrationSummary(
 }
 
 async function updatePipelineRunArtifacts(
-  serviceClient: Awaited<ReturnType<typeof requireUser>>["serviceClient"],
+  serviceClient: ServiceClient,
   pipelineRunId: string | null | undefined,
   jobId: string,
   evidenceId: string,
@@ -199,6 +247,20 @@ async function updatePipelineRunArtifacts(
     .eq("id", pipelineRunId);
 }
 
+async function loadProjectSummary(serviceClient: ServiceClient, projectId: string) {
+  const { data, error } = await serviceClient
+    .from("projects")
+    .select("id, name, slug")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new HttpError(500, "Failed to load project");
+  }
+
+  return data;
+}
+
 async function buildEvidenceData(params: {
   evidenceId: string;
   job: Record<string, unknown>;
@@ -206,8 +268,10 @@ async function buildEvidenceData(params: {
   integration: Record<string, unknown> | null;
 }) {
   const jobHash = await sha256Bytes32(String(params.job.id));
-  const metadata = (params.job.metadata ?? {}) as Record<string, unknown>;
-  const validationSource = (metadata.validationSummary ?? {}) as Record<string, unknown>;
+  const metadata = asObject(params.job.metadata);
+  const validationSource = asObject(metadata.validationSummary);
+  const integrationMetadata = params.integration ? asObject(params.integration.metadata) : {};
+
   const validationSummary = {
     validationScore: params.job.validation_score ?? null,
     processingTimeSeconds: params.job.processing_time_seconds ?? null,
@@ -238,6 +302,7 @@ async function buildEvidenceData(params: {
         name: params.integration.name,
         providerType: params.integration.provider_type,
         modelIdentifier: params.integration.model_identifier ?? null,
+        assistantId: typeof integrationMetadata.assistantId === "string" ? integrationMetadata.assistantId : null,
       }
       : null,
     privacy: {
@@ -283,16 +348,371 @@ async function buildEvidenceData(params: {
   };
 }
 
-async function createJob(req: Request, userContext: Awaited<ReturnType<typeof requireUser>>) {
+async function completeJobRecord(params: {
+  serviceClient: ServiceClient;
+  existingJob: Record<string, unknown>;
+  project: { id: string; name: string; slug: string };
+  integration: Record<string, unknown> | null;
+  status: "processing" | "completed" | "failed";
+  processingTimeSeconds?: number | null;
+  validationScore?: number | null;
+  errorMessage?: string | null;
+  metadata?: Record<string, JsonValue>;
+  auditTrail?: Record<string, JsonValue>;
+}) {
+  const currentMetadata = sanitizeObject(asObject(params.existingJob.metadata));
+  const nextMetadata = {
+    ...currentMetadata,
+    ...(params.metadata ?? {}),
+  };
+
+  const updatePayload: Record<string, unknown> = {
+    status: params.status,
+    processing_time_seconds: params.processingTimeSeconds ?? params.existingJob.processing_time_seconds ?? null,
+    validation_score: params.validationScore ?? params.existingJob.validation_score ?? null,
+    error_message: params.status === "failed" ? toLimitedString(params.errorMessage, 400, "Black-box suppression failed") : null,
+    metadata: nextMetadata,
+    audit_trail: params.auditTrail ?? params.existingJob.audit_trail ?? {},
+  };
+
+  if (params.status === "completed" || params.status === "failed") {
+    updatePayload.completed_at = new Date().toISOString();
+    updatePayload.evidence_status = params.status === "failed" ? "invalid" : "ready";
+  }
+
+  const { data: updatedJob, error: updateError } = await params.serviceClient
+    .from("unlearning_requests")
+    .update(updatePayload)
+    .eq("id", params.existingJob.id)
+    .select("*")
+    .single();
+
+  if (updateError || !updatedJob) {
+    throw new HttpError(500, "Failed to update job");
+  }
+
+  if (params.status === "processing") {
+    return updatedJob;
+  }
+
+  const { data: evidence, error: evidenceLoadError } = await params.serviceClient
+    .from("evidence_records")
+    .select("id")
+    .eq("job_id", params.existingJob.id)
+    .maybeSingle();
+
+  if (evidenceLoadError || !evidence) {
+    throw new HttpError(404, "Evidence record not found");
+  }
+
+  const evidenceData = await buildEvidenceData({
+    evidenceId: evidence.id,
+    job: updatedJob,
+    project: params.project,
+    integration: params.integration,
+  });
+
+  const { error: evidenceUpdateError } = await params.serviceClient
+    .from("evidence_records")
+    .update({
+      manifest: evidenceData.manifest,
+      report_payload: evidenceData.reportPayload,
+      evidence_hash: evidenceData.evidenceHash,
+      bundle_hash: evidenceData.evidenceHash,
+      job_hash: evidenceData.jobHash,
+      artifact_status: params.status === "failed" ? "invalid" : "ready",
+      verification_status: "not_verified",
+    })
+    .eq("id", evidence.id);
+
+  if (evidenceUpdateError) {
+    throw new HttpError(500, "Failed to finalize evidence record");
+  }
+
+  return updatedJob;
+}
+
+function queueBackgroundTask(task: Promise<unknown>) {
+  const runtime = (globalThis as typeof globalThis & {
+    EdgeRuntime?: {
+      waitUntil?: (promise: Promise<unknown>) => void;
+    };
+  }).EdgeRuntime;
+
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(task);
+    return;
+  }
+
+  task.catch((error) => {
+    console.error("Background job execution failed", error);
+  });
+}
+
+async function loadBlackBoxIntegrationContext(
+  serviceClient: ServiceClient,
+  integrationId: string,
+  projectId: string,
+) {
+  const { data: integration, error: integrationError } = await serviceClient
+    .from("integrations")
+    .select("*")
+    .eq("id", integrationId)
+    .maybeSingle();
+
+  if (integrationError) {
+    throw new Error("Failed to load integration");
+  }
+
+  if (!integration || integration.project_id !== projectId) {
+    throw new Error("Integration not found");
+  }
+
+  if (integration.provider_type !== "openai_compatible") {
+    throw new Error("Black-box suppression requires an OpenAI-compatible integration");
+  }
+
+  const metadata = asObject(integration.metadata);
+  const assistantId = typeof metadata.assistantId === "string" ? metadata.assistantId.trim() : "";
+
+  if (!assistantId) {
+    throw new Error("Integration is missing an Assistant ID");
+  }
+
+  const { data: secretRecord, error: secretError } = await serviceClient
+    .from("integration_secrets")
+    .select("secret_ciphertext, iv")
+    .eq("integration_id", integrationId)
+    .maybeSingle();
+
+  if (secretError) {
+    throw new Error("Failed to load integration secret");
+  }
+
+  if (!secretRecord) {
+    throw new Error("Integration secret is not configured");
+  }
+
+  const apiKey = await decryptSecret(secretRecord.secret_ciphertext, secretRecord.iv);
+
+  return {
+    integration,
+    assistantId,
+    apiKey,
+  };
+}
+
+async function updateRuntimeState(
+  serviceClient: ServiceClient,
+  job: Record<string, unknown>,
+  runtime: Record<string, unknown>,
+) {
+  return completeJobRecord({
+    serviceClient,
+    existingJob: job,
+    project: await loadProjectSummary(serviceClient, String(job.project_id)),
+    integration: await maybeResolveIntegrationSummary(serviceClient, String(job.project_id), job.integration_id as string | null),
+    status: "processing",
+    metadata: {
+      runtime: sanitizeObject(sanitizeRuntime(runtime)),
+    },
+  });
+}
+
+async function executeBlackBoxJob(params: {
+  serviceClient: ServiceClient;
+  jobId: string;
+  project: { id: string; name: string; slug: string };
+  targetText: string;
+}) {
+  const startedAt = new Date().toISOString();
+  const startedAtMs = Date.now();
+
+  const { data: initialJob, error: jobError } = await params.serviceClient
+    .from("unlearning_requests")
+    .select("*")
+    .eq("id", params.jobId)
+    .maybeSingle();
+
+  if (jobError || !initialJob) {
+    console.error("Unable to load job for black-box execution", jobError);
+    return;
+  }
+
+  let currentJob = initialJob as Record<string, unknown>;
+
+  try {
+    currentJob = await updateRuntimeState(params.serviceClient, currentJob, {
+      mode: "assistant_black_box",
+      percent: 2,
+      message: "Preparing black-box suppression run",
+      startedAt,
+    });
+
+    if (!currentJob.integration_id) {
+      throw new Error("Black-box suppression requires a configured integration");
+    }
+
+    const { integration, assistantId, apiKey } = await loadBlackBoxIntegrationContext(
+      params.serviceClient,
+      String(currentJob.integration_id),
+      String(currentJob.project_id),
+    );
+
+    const result = await executeAssistantSuppression({
+      apiKey,
+      baseUrl: String(integration.base_url),
+      assistantId,
+      targetText: params.targetText,
+      onProgress: async (progress) => {
+        currentJob = await updateRuntimeState(params.serviceClient, currentJob, {
+          mode: "assistant_black_box",
+          percent: progress.percent,
+          message: progress.message,
+          startedAt,
+        });
+      },
+    });
+
+    const completedAt = new Date().toISOString();
+    const existingMetadata = sanitizeObject(asObject(currentJob.metadata));
+    const integrationMetadata = sanitizeObject({
+      id: integration.id,
+      name: integration.name,
+      providerType: integration.provider_type,
+      modelIdentifier: integration.model_identifier ?? null,
+      assistantId,
+      status: integration.status,
+    });
+
+    await completeJobRecord({
+      serviceClient: params.serviceClient,
+      existingJob: currentJob,
+      project: params.project,
+      integration,
+      status: "completed",
+      processingTimeSeconds: result.processingTimeSeconds,
+      validationScore: result.validationScore,
+      metadata: {
+        ...existingMetadata,
+        validationSummary: sanitizeObject({
+          totalChecks: result.totalTests,
+          passedChecks: result.passedTests,
+          failedChecks: result.failedTests,
+          leakScore: result.leakScore,
+          processingTimeSeconds: result.processingTimeSeconds,
+        }),
+        integrationMetadata,
+        executionSummary: sanitizeObject({
+          mode: "assistant_black_box",
+          assistantId: result.assistantId,
+          suppressionInjected: result.suppressionInjected,
+          phase1: result.phase1,
+          phase2: result.phase2,
+          completedAt,
+        }),
+        runtime: sanitizeObject(sanitizeRuntime({
+          mode: "assistant_black_box",
+          percent: 100,
+          message: "Suppression run completed",
+          startedAt,
+          completedAt,
+        })),
+      },
+      auditTrail: sanitizeObject({
+        mode: "assistant_black_box",
+        assistantId: result.assistantId,
+        suppressionInjected: result.suppressionInjected,
+        totalTests: result.totalTests,
+        passedTests: result.passedTests,
+        failedTests: result.failedTests,
+        leakScore: result.leakScore,
+        completedAt,
+      }),
+    });
+  } catch (error) {
+    const completedAt = new Date().toISOString();
+    const processingTimeSeconds = Math.max(1, Math.floor((Date.now() - startedAtMs) / 1000));
+    const message = error instanceof Error ? error.message : "Black-box suppression failed";
+    const existingMetadata = sanitizeObject(asObject(currentJob.metadata));
+    let integration = null;
+
+    if (currentJob.integration_id) {
+      try {
+        integration = await maybeResolveIntegrationSummary(
+          params.serviceClient,
+          String(currentJob.project_id),
+          String(currentJob.integration_id),
+        );
+      } catch {
+        integration = null;
+      }
+    }
+
+    await completeJobRecord({
+      serviceClient: params.serviceClient,
+      existingJob: currentJob,
+      project: params.project,
+      integration,
+      status: "failed",
+      processingTimeSeconds,
+      validationScore: 0,
+      errorMessage: message,
+      metadata: {
+        ...existingMetadata,
+        executionSummary: sanitizeObject({
+          mode: "assistant_black_box",
+          suppressionInjected: false,
+          failedAt: completedAt,
+        }),
+        runtime: sanitizeObject(sanitizeRuntime({
+          mode: "assistant_black_box",
+          percent: 100,
+          message: "Suppression run failed",
+          startedAt,
+          completedAt,
+        })),
+      },
+      auditTrail: sanitizeObject({
+        mode: "assistant_black_box",
+        suppressionInjected: false,
+        failedAt: completedAt,
+        error: message,
+      }),
+    });
+  }
+}
+
+async function createJob(req: Request, userContext: UserContext) {
   const body = await req.json();
   const { user, serviceClient } = userContext;
   const projectId = await resolveProjectId(serviceClient, user.id, body.projectId ?? null);
   const membership = await requireProjectMembership(serviceClient, projectId, user.id, [...BUILD_ROLES]);
   const integration = await maybeResolveIntegrationSummary(serviceClient, projectId, body.integrationId ?? null);
   const sanitizedMetadata = sanitizeMetadata(body);
-  const status = ["pending", "processing", "completed", "failed"].includes(body.status)
+  const runBlackBox = body.runBlackBox === true;
+  const status = runBlackBox
+    ? "processing"
+    : ["pending", "processing", "completed", "failed"].includes(body.status)
     ? body.status
     : "pending";
+
+  if (runBlackBox && !integration) {
+    throw new HttpError(400, "Black-box suppression requires an integration");
+  }
+
+  if (runBlackBox && !toLimitedString(body.targetText, 4)) {
+    throw new HttpError(400, "Sensitive target text is required for black-box suppression");
+  }
+
+  const runtime = runBlackBox
+    ? sanitizeObject(sanitizeRuntime({
+      mode: "assistant_black_box",
+      percent: 0,
+      message: "Queued for execution",
+      startedAt: new Date().toISOString(),
+    }))
+    : null;
 
   const insertPayload = {
     project_id: projectId,
@@ -303,12 +723,14 @@ async function createJob(req: Request, userContext: Awaited<ReturnType<typeof re
     pipeline_run_id: body.pipelineRunId ?? null,
     request_reason: toLimitedString(body.requestReason, 240, "AI unlearning job"),
     status,
-    processing_time_seconds: toOptionalNumber(body.processingTimeSeconds ?? sanitizedMetadata.validationSummary.processingTimeSeconds),
+    processing_time_seconds: runBlackBox ? null : toOptionalNumber(body.processingTimeSeconds ?? sanitizedMetadata.validationSummary.processingTimeSeconds),
     blockchain_tx_hash: null,
-    audit_trail: {},
+    audit_trail: runBlackBox ? sanitizeObject({ mode: "assistant_black_box", queuedAt: new Date().toISOString() }) : {},
     target_type: toLimitedString(body.targetType, 40, "assistant"),
     execution_lane: toLimitedString(body.executionLane, 40, "assistant_black_box"),
-    validation_score: toOptionalNumber(body.validationScore ?? sanitizedMetadata.validationSummary.leakScore),
+    validation_score: runBlackBox
+      ? null
+      : toValidationScore(body.validationScore, sanitizedMetadata.validationSummary.leakScore),
     completed_at: status === "completed" ? new Date().toISOString() : null,
     error_message: status === "failed" ? toLimitedString(body.errorMessage, 400) : null,
     target_scope_summary: toLimitedString(body.targetScopeSummary, 240, toLimitedString(body.requestReason, 240)),
@@ -316,7 +738,10 @@ async function createJob(req: Request, userContext: Awaited<ReturnType<typeof re
     anchor_status: "not_submitted",
     report_status: "not_generated",
     verification_status: "not_verified",
-    metadata: sanitizedMetadata,
+    metadata: {
+      ...sanitizedMetadata,
+      ...(runtime ? { runtime } : {}),
+    },
   };
 
   const { data: job, error: insertError } = await serviceClient
@@ -381,10 +806,23 @@ async function createJob(req: Request, userContext: Awaited<ReturnType<typeof re
 
   await updatePipelineRunArtifacts(serviceClient, body.pipelineRunId ?? null, job.id, evidenceId);
 
+  if (runBlackBox) {
+    queueBackgroundTask(executeBlackBoxJob({
+      serviceClient,
+      jobId: job.id,
+      project: {
+        id: membership.projects?.id ?? projectId,
+        name: membership.projects?.name ?? "Workspace",
+        slug: membership.projects?.slug ?? "workspace",
+      },
+      targetText: String(body.targetText),
+    }));
+  }
+
   return getJob(userContext, job.id);
 }
 
-async function completeJob(req: Request, userContext: Awaited<ReturnType<typeof requireUser>>) {
+async function completeJob(req: Request, userContext: UserContext) {
   const body = await req.json();
   const { user, serviceClient } = userContext;
   const jobId = body.jobId as string | undefined;
@@ -410,71 +848,28 @@ async function completeJob(req: Request, userContext: Awaited<ReturnType<typeof 
   const membership = await requireProjectMembership(serviceClient, existingJob.project_id, user.id, [...OPERATE_ROLES]);
   const integration = await maybeResolveIntegrationSummary(serviceClient, existingJob.project_id, existingJob.integration_id);
   const sanitizedMetadata = sanitizeMetadata(body);
+  const status = body.status && ["completed", "failed", "processing"].includes(body.status) ? body.status : "completed";
 
-  const { data: updatedJob, error: updateError } = await serviceClient
-    .from("unlearning_requests")
-    .update({
-      status: body.status && ["completed", "failed", "processing"].includes(body.status) ? body.status : "completed",
-      processing_time_seconds: toOptionalNumber(body.processingTimeSeconds ?? sanitizedMetadata.validationSummary.processingTimeSeconds ?? existingJob.processing_time_seconds),
-      validation_score: toOptionalNumber(body.validationScore ?? sanitizedMetadata.validationSummary.leakScore ?? existingJob.validation_score),
-      error_message: body.status === "failed" ? toLimitedString(body.errorMessage, 400) : null,
-      completed_at: new Date().toISOString(),
-      evidence_status: body.status === "failed" ? "invalid" : "ready",
-      metadata: {
-        ...(existingJob.metadata ?? {}),
-        ...sanitizedMetadata,
-      },
-    })
-    .eq("id", jobId)
-    .select("*")
-    .single();
-
-  if (updateError || !updatedJob) {
-    throw new HttpError(500, "Failed to update job");
-  }
-
-  const { data: evidence, error: evidenceLoadError } = await serviceClient
-    .from("evidence_records")
-    .select("id")
-    .eq("job_id", jobId)
-    .maybeSingle();
-
-  if (evidenceLoadError || !evidence) {
-    throw new HttpError(404, "Evidence record not found");
-  }
-
-  const evidenceData = await buildEvidenceData({
-    evidenceId: evidence.id,
-    job: updatedJob,
+  await completeJobRecord({
+    serviceClient,
+    existingJob,
     project: {
-      id: membership.projects?.id ?? updatedJob.project_id,
+      id: membership.projects?.id ?? existingJob.project_id,
       name: membership.projects?.name ?? "Workspace",
       slug: membership.projects?.slug ?? "workspace",
     },
     integration,
+    status,
+    processingTimeSeconds: toOptionalNumber(body.processingTimeSeconds ?? sanitizedMetadata.validationSummary.processingTimeSeconds ?? existingJob.processing_time_seconds),
+    validationScore: toValidationScore(body.validationScore, sanitizedMetadata.validationSummary.leakScore, existingJob.validation_score),
+    errorMessage: status === "failed" ? toLimitedString(body.errorMessage, 400) : null,
+    metadata: sanitizedMetadata,
   });
-
-  const { error: evidenceUpdateError } = await serviceClient
-    .from("evidence_records")
-    .update({
-      manifest: evidenceData.manifest,
-      report_payload: evidenceData.reportPayload,
-      evidence_hash: evidenceData.evidenceHash,
-      bundle_hash: evidenceData.evidenceHash,
-      job_hash: evidenceData.jobHash,
-      artifact_status: updatedJob.status === "failed" ? "invalid" : "ready",
-      verification_status: "not_verified",
-    })
-    .eq("id", evidence.id);
-
-  if (evidenceUpdateError) {
-    throw new HttpError(500, "Failed to finalize evidence record");
-  }
 
   return getJob(userContext, jobId);
 }
 
-async function listJobs(userContext: Awaited<ReturnType<typeof requireUser>>, projectId: string | null) {
+async function listJobs(userContext: UserContext, projectId: string | null) {
   const { user, serviceClient } = userContext;
   const resolvedProjectId = await resolveProjectId(serviceClient, user.id, projectId);
   await requireProjectMembership(serviceClient, resolvedProjectId, user.id);
@@ -488,7 +883,8 @@ async function listJobs(userContext: Awaited<ReturnType<typeof requireUser>>, pr
         name,
         provider_type,
         model_identifier,
-        status
+        status,
+        metadata
       ),
       evidence_records (
         id,
@@ -525,7 +921,7 @@ async function listJobs(userContext: Awaited<ReturnType<typeof requireUser>>, pr
   });
 }
 
-async function getJob(userContext: Awaited<ReturnType<typeof requireUser>>, jobId: string) {
+async function getJob(userContext: UserContext, jobId: string) {
   const { user, serviceClient } = userContext;
   const { data, error } = await serviceClient
     .from("unlearning_requests")
@@ -537,7 +933,8 @@ async function getJob(userContext: Awaited<ReturnType<typeof requireUser>>, jobI
         provider_type,
         model_identifier,
         status,
-        last_tested_at
+        last_tested_at,
+        metadata
       ),
       verification_pipelines (
         id,

@@ -6,7 +6,15 @@ import { StatusBadge } from '../components/StatusBadge';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { anchorsApi, integrationsApi, jobsApi, reportsApi } from '../lib/api';
 import { buildEvidenceBundleFile, sha256Bytes32 } from '../lib/hash';
-import { downloadTextFile, getAnchorRecord, getEvidenceRecord, roleCanCreateJobs } from '../lib/domainUtils';
+import {
+  downloadTextFile,
+  getAnchorRecord,
+  getEvidenceRecord,
+  getIntegrationAssistantId,
+  getJobRuntimeState,
+  integrationSupportsAssistantSuppression,
+  roleCanCreateJobs,
+} from '../lib/domainUtils';
 import { PDFGenerator } from '../lib/pdfGenerator';
 import type { Integration, JobRecord } from '../types/domain';
 
@@ -23,6 +31,7 @@ export function Unlearning() {
   const [validationScore, setValidationScore] = useState('0.92');
   const [processingTimeSeconds, setProcessingTimeSeconds] = useState('180');
   const [integrationId, setIntegrationId] = useState('');
+  const [sensitiveTargetText, setSensitiveTargetText] = useState('');
   const [notes, setNotes] = useState('');
 
   const canCreateJobs = roleCanCreateJobs(activeMembership?.role);
@@ -42,9 +51,12 @@ export function Unlearning() {
     () => integrations.find((integration) => integration.id === integrationId) ?? null,
     [integrationId, integrations],
   );
+  const selectedAssistantId = useMemo(() => getIntegrationAssistantId(selectedIntegration), [selectedIntegration]);
+  const liveSuppressionEnabled = executionLane === 'assistant_black_box' && integrationSupportsAssistantSuppression(selectedIntegration);
 
   const evidence = createdJob ? getEvidenceRecord(createdJob) : null;
   const anchor = createdJob ? getAnchorRecord(createdJob) : null;
+  const runtimeState = createdJob ? getJobRuntimeState(createdJob) : null;
 
   const loadCreatedJob = async (jobId: string) => {
     const response = await jobsApi.get(jobId);
@@ -53,6 +65,11 @@ export function Unlearning() {
 
   const createJob = async () => {
     if (!activeMembership?.project_id) {
+      return;
+    }
+
+    if (liveSuppressionEnabled && !sensitiveTargetText.trim()) {
+      setError('Sensitive target text is required for black-box suppression runs.');
       return;
     }
 
@@ -67,20 +84,21 @@ export function Unlearning() {
         targetScopeSummary,
         targetType,
         executionLane,
-        validationScore: Number(validationScore),
-        processingTimeSeconds: Number(processingTimeSeconds),
-        status: 'completed',
-        metadata: {
-          notes,
-          integrationMetadata: selectedIntegration
-            ? {
-              integrationId: selectedIntegration.id,
-              name: selectedIntegration.name,
-              providerType: selectedIntegration.provider_type,
-              modelIdentifier: selectedIntegration.model_identifier,
-            }
-            : null,
-        },
+        validationScore: liveSuppressionEnabled ? undefined : Number(validationScore),
+        processingTimeSeconds: liveSuppressionEnabled ? undefined : Number(processingTimeSeconds),
+        status: liveSuppressionEnabled ? 'processing' : 'completed',
+        runBlackBox: liveSuppressionEnabled,
+        targetText: liveSuppressionEnabled ? sensitiveTargetText : undefined,
+        notes,
+        integrationMetadata: selectedIntegration
+          ? {
+            integrationId: selectedIntegration.id,
+            name: selectedIntegration.name,
+            providerType: selectedIntegration.provider_type,
+            modelIdentifier: selectedIntegration.model_identifier,
+            assistantId: selectedAssistantId,
+          }
+          : null,
       });
 
       setCreatedJob(response.job);
@@ -90,6 +108,18 @@ export function Unlearning() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!createdJob?.id || createdJob.status !== 'processing') {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadCreatedJob(createdJob.id).catch(() => undefined);
+    }, 4000);
+
+    return () => window.clearInterval(interval);
+  }, [createdJob?.id, createdJob?.status]);
 
   const anchorEvidence = async () => {
     if (!evidence?.id || !createdJob) {
@@ -167,8 +197,8 @@ export function Unlearning() {
         </div>
         <h1 className="mt-3 text-3xl font-bold text-[#111111]">Run Unlearning Workflow</h1>
         <p className="mt-2 max-w-3xl text-[#4B4B4B]">
-          Create a production-grade job record, generate a sanitized evidence bundle, and optionally anchor the
-          resulting commitment on Avalanche. Raw customer data and prompts stay off-chain.
+          Run a real black-box suppression job against an assistant-backed integration or create a manual review record,
+          then generate sanitized evidence and optionally anchor commitments on Avalanche.
         </p>
       </div>
 
@@ -229,22 +259,6 @@ export function Unlearning() {
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <label>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Validation Score</span>
-                <input
-                  value={validationScore}
-                  onChange={(event) => setValidationScore(event.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
-                />
-              </label>
-              <label>
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Processing Time (s)</span>
-                <input
-                  value={processingTimeSeconds}
-                  onChange={(event) => setProcessingTimeSeconds(event.target.value)}
-                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
-                />
-              </label>
-              <label>
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Integration</span>
                 <select
                   value={integrationId}
@@ -259,7 +273,48 @@ export function Unlearning() {
                   ))}
                 </select>
               </label>
+              {!liveSuppressionEnabled && (
+                <>
+                  <label>
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Validation Score</span>
+                    <input
+                      value={validationScore}
+                      onChange={(event) => setValidationScore(event.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                    />
+                  </label>
+                  <label>
+                    <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Processing Time (s)</span>
+                    <input
+                      value={processingTimeSeconds}
+                      onChange={(event) => setProcessingTimeSeconds(event.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                    />
+                  </label>
+                </>
+              )}
             </div>
+            {executionLane === 'assistant_black_box' && (
+              liveSuppressionEnabled ? (
+                <label>
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Sensitive Target Text (runtime only)</span>
+                  <textarea
+                    value={sensitiveTargetText}
+                    onChange={(event) => setSensitiveTargetText(event.target.value)}
+                    rows={4}
+                    placeholder="Enter the exact phrase or sensitive material to suppress. This is used at runtime only and is not written to the database or chain."
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                  />
+                  <p className="mt-2 text-sm text-[#4B4B4B]">
+                    Stored integration secret + Assistant ID `{selectedAssistantId}` will be used server-side. Raw target text stays out of evidence manifests and Avalanche data.
+                  </p>
+                </label>
+              ) : (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  Select an OpenAI-compatible integration with an Assistant ID in Settings to run live black-box suppression.
+                </div>
+              )
+            )}
             <label>
               <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Operational Notes</span>
               <textarea
@@ -278,7 +333,9 @@ export function Unlearning() {
               onClick={createJob}
               className="rounded-xl bg-[#2F80ED] px-5 py-3 text-sm font-semibold text-white hover:bg-[#2870CE] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? 'Creating...' : 'Create job and evidence'}
+              {loading
+                ? liveSuppressionEnabled ? 'Starting suppression...' : 'Creating...'
+                : liveSuppressionEnabled ? 'Run black-box suppression' : 'Create job and evidence'}
             </button>
           </div>
         </div>
@@ -313,6 +370,27 @@ export function Unlearning() {
                 </div>
               </div>
               <div className="mt-4 space-y-4">
+                {createdJob.status === 'processing' && (
+                  <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-[#111111]">
+                    <div className="font-semibold">Suppression run in progress</div>
+                    <div className="mt-1 text-[#4B4B4B]">
+                      {runtimeState?.message ?? 'Processing black-box suppression through the configured integration.'}
+                    </div>
+                    {typeof runtimeState?.percent === 'number' && (
+                      <div className="mt-3">
+                        <div className="h-2 rounded-full bg-blue-100">
+                          <div
+                            className="h-2 rounded-full bg-[#2F80ED] transition-all"
+                            style={{ width: `${runtimeState.percent}%` }}
+                          />
+                        </div>
+                        <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                          {Math.round(runtimeState.percent)}% complete
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Evidence Hash</div>
                   <div className="mt-2 break-all font-mono text-sm text-[#111111]">{evidence?.evidence_hash ?? 'Pending'}</div>
@@ -322,7 +400,7 @@ export function Unlearning() {
                   <button
                     type="button"
                     onClick={anchorEvidence}
-                    disabled={loading || !evidence}
+                    disabled={loading || !evidence || createdJob.status !== 'completed'}
                     className="inline-flex items-center justify-center rounded-xl bg-[#E84142] px-4 py-3 text-sm font-semibold text-white hover:bg-[#c73435] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Link2 className="mr-2 h-4 w-4" />
@@ -331,7 +409,7 @@ export function Unlearning() {
                   <button
                     type="button"
                     onClick={downloadBundle}
-                    disabled={!evidence}
+                    disabled={!evidence || createdJob.status !== 'completed'}
                     className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
                   >
                     Download Evidence Bundle
@@ -339,7 +417,7 @@ export function Unlearning() {
                   <button
                     type="button"
                     onClick={exportPdf}
-                    disabled={loading}
+                    disabled={loading || createdJob.status !== 'completed'}
                     className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
                   >
                     Export PDF Report

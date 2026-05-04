@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   explorerTxUrl,
+  getIntegrationAssistantId,
+  getJobRuntimeState,
+  integrationSupportsAssistantSuppression,
   roleCanCreateJobs,
   roleCanExport,
   roleCanManageIntegrations,
@@ -29,5 +32,33 @@ describe('domain utils', () => {
     expect(explorerTxUrl('0xabc', 'fuji')).toBe('https://testnet.snowtrace.io/tx/0xabc');
     expect(explorerTxUrl('0xdef', 'mainnet')).toBe('https://snowtrace.io/tx/0xdef');
     expect(explorerTxUrl(null, 'fuji')).toBeNull();
+  });
+
+  it('recognizes assistant-backed integrations and runtime state safely', () => {
+    const integration = {
+      provider_type: 'openai_compatible',
+      metadata: {
+        assistantId: 'asst_live_123',
+      },
+    } as const;
+
+    expect(getIntegrationAssistantId(integration as never)).toBe('asst_live_123');
+    expect(integrationSupportsAssistantSuppression(integration as never)).toBe(true);
+    expect(integrationSupportsAssistantSuppression({
+      provider_type: 'generic_http',
+      metadata: {},
+    } as never)).toBe(false);
+
+    expect(getJobRuntimeState({
+      metadata: {
+        runtime: {
+          percent: 40,
+          message: 'Running suppression',
+        },
+      },
+    } as never)).toEqual({
+      percent: 40,
+      message: 'Running suppression',
+    });
   });
 });

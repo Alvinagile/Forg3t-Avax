@@ -5,7 +5,7 @@ import { CopyButton } from '../components/CopyButton';
 import { StatusBadge } from '../components/StatusBadge';
 import { anchorsApi, jobsApi, reportsApi } from '../lib/api';
 import { buildEvidenceBundleFile, sha256Bytes32 } from '../lib/hash';
-import { downloadTextFile, explorerTxUrl, formatDate, getAnchorRecord, getEvidenceRecord } from '../lib/domainUtils';
+import { downloadTextFile, explorerTxUrl, formatDate, getAnchorRecord, getEvidenceRecord, getJobRuntimeState } from '../lib/domainUtils';
 import { PDFGenerator } from '../lib/pdfGenerator';
 import type { JobRecord } from '../types/domain';
 
@@ -41,6 +41,24 @@ export function JobDetail() {
 
   const evidence = useMemo(() => (job ? getEvidenceRecord(job) : null), [job]);
   const anchor = useMemo(() => (job ? getAnchorRecord(job) : null), [job]);
+  const runtimeState = useMemo(() => getJobRuntimeState(job), [job]);
+  const validationSummary = useMemo(() => {
+    if (!job?.metadata || typeof job.metadata !== 'object' || Array.isArray(job.metadata)) {
+      return null;
+    }
+
+    const candidate = (job.metadata as Record<string, unknown>).validationSummary;
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      return null;
+    }
+
+    return candidate as {
+      leakScore?: number | null;
+      totalChecks?: number | null;
+      passedChecks?: number | null;
+      failedChecks?: number | null;
+    };
+  }, [job]);
 
   const exportReport = async (format: 'json' | 'csv' | 'pdf') => {
     if (!job) {
@@ -176,6 +194,26 @@ export function JobDetail() {
         </div>
       )}
 
+      {job.status === 'processing' && runtimeState && (
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-sm text-[#111111]">
+          <div className="font-semibold">Black-box suppression is running</div>
+          <div className="mt-1 text-[#4B4B4B]">{runtimeState.message ?? 'Processing job execution.'}</div>
+          {typeof runtimeState.percent === 'number' && (
+            <div className="mt-4">
+              <div className="h-2 rounded-full bg-blue-100">
+                <div
+                  className="h-2 rounded-full bg-[#2F80ED] transition-all"
+                  style={{ width: `${runtimeState.percent}%` }}
+                />
+              </div>
+              <div className="mt-2 text-xs font-semibold uppercase tracking-wide text-blue-700">
+                {Math.round(runtimeState.percent)}% complete
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <section className="grid gap-4 lg:grid-cols-4">
         {[
           { label: 'Created', value: formatDate(job.created_at) },
@@ -208,6 +246,30 @@ export function JobDetail() {
                 </div>
               </div>
             </div>
+            {validationSummary && (
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="text-sm text-[#4B4B4B]">Leak Score</div>
+                  <div className="mt-2 text-lg font-semibold text-[#111111]">
+                    {validationSummary.leakScore !== null && validationSummary.leakScore !== undefined
+                      ? Number(validationSummary.leakScore).toFixed(2)
+                      : 'N/A'}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="text-sm text-[#4B4B4B]">Checks Passed</div>
+                  <div className="mt-2 text-lg font-semibold text-[#111111]">
+                    {validationSummary.passedChecks ?? 'N/A'}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="text-sm text-[#4B4B4B]">Checks Failed</div>
+                  <div className="mt-2 text-lg font-semibold text-[#111111]">
+                    {validationSummary.failedChecks ?? 'N/A'}
+                  </div>
+                </div>
+              </div>
+            )}
             {job.error_message && (
               <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                 {job.error_message}

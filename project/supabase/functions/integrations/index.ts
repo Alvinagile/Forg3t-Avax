@@ -16,6 +16,13 @@ function buildOpenAIModelsUrl(baseUrl: string) {
   return normalized.endsWith("/v1") ? `${normalized}/models` : `${normalized}/v1/models`;
 }
 
+function buildOpenAIAssistantUrl(baseUrl: string, assistantId: string) {
+  const normalized = normalizeBaseUrl(baseUrl);
+  return normalized.endsWith("/v1")
+    ? `${normalized}/assistants/${assistantId}`
+    : `${normalized}/v1/assistants/${assistantId}`;
+}
+
 function sanitizeMetadata(input: unknown) {
   if (!input || typeof input !== "object") {
     return {};
@@ -24,6 +31,7 @@ function sanitizeMetadata(input: unknown) {
   const metadata = input as Record<string, unknown>;
   return {
     healthcheckPath: typeof metadata.healthcheckPath === "string" ? metadata.healthcheckPath.slice(0, 120) : null,
+    assistantId: typeof metadata.assistantId === "string" ? metadata.assistantId.slice(0, 120) : null,
     defaultHeaders: metadata.defaultHeaders && typeof metadata.defaultHeaders === "object"
       ? Object.fromEntries(
         Object.entries(metadata.defaultHeaders as Record<string, unknown>)
@@ -303,6 +311,7 @@ async function testIntegration(req: Request, userContext: Awaited<ReturnType<typ
 
   const metadata = (integration.metadata ?? {}) as Record<string, unknown>;
   const healthcheckPath = typeof metadata.healthcheckPath === "string" ? metadata.healthcheckPath : null;
+  const assistantId = typeof metadata.assistantId === "string" ? metadata.assistantId : null;
   const defaultHeaders = metadata.defaultHeaders && typeof metadata.defaultHeaders === "object"
     ? metadata.defaultHeaders as Record<string, string>
     : {};
@@ -311,8 +320,14 @@ async function testIntegration(req: Request, userContext: Awaited<ReturnType<typ
     headers[key] = value;
   }
 
+  if (assistantId) {
+    headers["OpenAI-Beta"] = "assistants=v2";
+  }
+
   const targetUrl = integration.provider_type === "openai_compatible"
-    ? buildOpenAIModelsUrl(integration.base_url)
+    ? assistantId
+      ? buildOpenAIAssistantUrl(integration.base_url, assistantId)
+      : buildOpenAIModelsUrl(integration.base_url)
     : `${normalizeBaseUrl(integration.base_url)}${healthcheckPath ?? ""}`;
 
   try {

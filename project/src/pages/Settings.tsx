@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, UserPlus, Wifi } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { integrationsApi, projectAccessApi } from '../lib/api';
-import { roleCanManageIntegrations, roleCanManageProject } from '../lib/domainUtils';
+import { getIntegrationAssistantId, roleCanManageIntegrations, roleCanManageProject } from '../lib/domainUtils';
 import { supabase } from '../lib/supabase';
 import { useWorkspace } from '../hooks/useWorkspace';
 import { StatusBadge } from '../components/StatusBadge';
@@ -26,11 +26,13 @@ export function Settings() {
     providerType: 'openai_compatible',
     baseUrl: '',
     modelIdentifier: '',
+    assistantId: '',
     authType: 'bearer',
     authHeaderName: 'x-api-key',
     secret: '',
     healthcheckPath: '',
   });
+  const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
   const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState<ProjectRole>('viewer');
 
@@ -104,7 +106,22 @@ export function Settings() {
     }
   };
 
-  const createIntegration = async () => {
+  const resetIntegrationForm = () => {
+    setEditingIntegrationId(null);
+    setIntegrationForm({
+      name: '',
+      providerType: 'openai_compatible',
+      baseUrl: '',
+      modelIdentifier: '',
+      assistantId: '',
+      authType: 'bearer',
+      authHeaderName: 'x-api-key',
+      secret: '',
+      healthcheckPath: '',
+    });
+  };
+
+  const saveIntegration = async () => {
     if (!activeMembership?.project_id) {
       return;
     }
@@ -112,7 +129,7 @@ export function Settings() {
     setError('');
     setMessage('');
     try {
-      await integrationsApi.create({
+      const payload = {
         projectId: activeMembership.project_id,
         name: integrationForm.name,
         providerType: integrationForm.providerType,
@@ -123,22 +140,24 @@ export function Settings() {
         secret: integrationForm.secret,
         metadata: {
           healthcheckPath: integrationForm.healthcheckPath,
+          assistantId: integrationForm.assistantId,
         },
-      });
-      setIntegrationForm({
-        name: '',
-        providerType: 'openai_compatible',
-        baseUrl: '',
-        modelIdentifier: '',
-        authType: 'bearer',
-        authHeaderName: 'x-api-key',
-        secret: '',
-        healthcheckPath: '',
-      });
-      setMessage('Integration created.');
+      };
+
+      if (editingIntegrationId) {
+        await integrationsApi.update({
+          integrationId: editingIntegrationId,
+          ...payload,
+        });
+      } else {
+        await integrationsApi.create(payload);
+      }
+
+      resetIntegrationForm();
+      setMessage(editingIntegrationId ? 'Integration updated.' : 'Integration created.');
       await loadWorkspaceSettings();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Failed to create integration');
+      setError(reason instanceof Error ? reason.message : 'Failed to save integration');
     }
   };
 
@@ -200,6 +219,22 @@ export function Settings() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to remove member');
     }
+  };
+
+  const editIntegration = (integration: Integration) => {
+    const metadata = integration.metadata ?? {};
+    setEditingIntegrationId(integration.id);
+    setIntegrationForm({
+      name: integration.name,
+      providerType: integration.provider_type,
+      baseUrl: integration.base_url,
+      modelIdentifier: integration.model_identifier ?? '',
+      assistantId: getIntegrationAssistantId(integration) ?? '',
+      authType: integration.auth_type,
+      authHeaderName: integration.auth_header_name ?? 'x-api-key',
+      secret: '',
+      healthcheckPath: typeof metadata.healthcheckPath === 'string' ? metadata.healthcheckPath : '',
+    });
   };
 
   return (
@@ -368,7 +403,7 @@ export function Settings() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-[#111111]">Integrations</h2>
-              <p className="text-sm text-[#4B4B4B]">Configure OpenAI-compatible or generic HTTP model endpoints.</p>
+              <p className="text-sm text-[#4B4B4B]">Configure OpenAI-compatible or generic HTTP model endpoints, including assistant-backed black-box suppression.</p>
             </div>
           </div>
 
@@ -410,6 +445,17 @@ export function Settings() {
                   className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
                 />
               </label>
+              {integrationForm.providerType === 'openai_compatible' && (
+                <label>
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Assistant ID (optional)</span>
+                  <input
+                    value={integrationForm.assistantId}
+                    onChange={(event) => setIntegrationForm((current) => ({ ...current, assistantId: event.target.value }))}
+                    placeholder="asst_..."
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-[#111111] focus:border-[#2F80ED] focus:outline-none"
+                  />
+                </label>
+              )}
               <label>
                 <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500">Auth Type</span>
                 <select
@@ -452,13 +498,24 @@ export function Settings() {
                 />
               </label>
               <div className="md:col-span-2">
-                <button
-                  type="button"
-                  onClick={createIntegration}
-                  className="rounded-xl bg-[#2F80ED] px-5 py-3 text-sm font-semibold text-white hover:bg-[#2870CE]"
-                >
-                  Save integration
-                </button>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={saveIntegration}
+                    className="rounded-xl bg-[#2F80ED] px-5 py-3 text-sm font-semibold text-white hover:bg-[#2870CE]"
+                  >
+                    {editingIntegrationId ? 'Update integration' : 'Save integration'}
+                  </button>
+                  {editingIntegrationId && (
+                    <button
+                      type="button"
+                      onClick={resetIntegrationForm}
+                      className="rounded-xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
+                    >
+                      Cancel edit
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -476,6 +533,11 @@ export function Settings() {
                     <div className="mt-1 text-sm text-[#4B4B4B]">
                       {integration.provider_type.replaceAll('_', ' ')} · {integration.base_url}
                     </div>
+                    {getIntegrationAssistantId(integration) && (
+                      <div className="mt-1 text-sm text-[#4B4B4B]">
+                        Assistant ID: {getIntegrationAssistantId(integration)}
+                      </div>
+                    )}
                     {integration.last_error && (
                       <div className="mt-2 text-sm text-red-700">{integration.last_error}</div>
                     )}
@@ -483,13 +545,22 @@ export function Settings() {
                   <div className="flex items-center gap-3">
                     <StatusBadge status={integration.status} />
                     {canManageIntegrations && (
-                      <button
-                        type="button"
-                        onClick={() => void testIntegration(integration.id)}
-                        className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
-                      >
-                        Test
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => editIntegration(integration)}
+                          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void testIntegration(integration.id)}
+                          className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED]"
+                        >
+                          Test
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

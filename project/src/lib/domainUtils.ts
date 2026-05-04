@@ -1,6 +1,7 @@
 import type {
   AnchorRecord,
   EvidenceRecord,
+  Integration,
   JobRecord,
   ProjectRole,
 } from '../types/domain';
@@ -85,6 +86,40 @@ export function roleCanManageIntegrations(role: ProjectRole | null | undefined) 
 
 export function roleCanManagePipelines(role: ProjectRole | null | undefined) {
   return ['owner', 'admin', 'developer', 'compliance'].includes(role ?? '');
+}
+
+export function getIntegrationAssistantId(integration: Integration | null | undefined) {
+  const metadata = integration?.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const assistantId = (metadata as Record<string, unknown>).assistantId;
+  return typeof assistantId === 'string' && assistantId.trim() ? assistantId : null;
+}
+
+export function integrationSupportsAssistantSuppression(integration: Integration | null | undefined) {
+  return integration?.provider_type === 'openai_compatible' && Boolean(getIntegrationAssistantId(integration));
+}
+
+export function getJobRuntimeState(job: JobRecord | null | undefined) {
+  const metadata = job?.metadata;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const runtime = (metadata as Record<string, unknown>).runtime;
+  if (!runtime || typeof runtime !== 'object' || Array.isArray(runtime)) {
+    return null;
+  }
+
+  return runtime as {
+    mode?: string | null;
+    percent?: number | null;
+    message?: string | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
+  };
 }
 
 export function toEvidenceRecord(value: EvidenceRecord[] | EvidenceRecord | null | undefined) {
