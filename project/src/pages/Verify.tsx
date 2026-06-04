@@ -232,9 +232,35 @@ export function Verify() {
                     {result.verificationStatus === 'anchor_not_found' && 'Anchor not found: no matching evidence or anchor record could be located.'}
                     {result.verificationStatus === 'anchor_pending' && 'Anchor pending: the evidence commitment was submitted but Avalanche confirmation is still in progress.'}
                     {result.verificationStatus === 'anchor_confirmed' && 'Anchor confirmed: a valid Avalanche commitment exists for this evidence.'}
+                    {result.verificationStatus === 'anchor_failed' && 'Anchor failed: an anchor record exists, but the Avalanche transaction failed or did not match the stored commitment.'}
                     {result.verificationStatus === 'invalid_bundle' && 'Invalid bundle: the uploaded JSON does not match the Forg3t evidence bundle schema.'}
                     {result.verificationStatus === 'unsupported_file' && 'Unsupported file: only JSON bundles and PDF reports are accepted.'}
                   </div>
+                  {(result.transactionHash || result.explorerUrl || result.network || result.blockNumber || result.contractAddress) && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                        <div className="text-sm text-[#4B4B4B]">Network</div>
+                        <div className="mt-2 font-semibold text-[#111111]">{result.network ?? 'N/A'}</div>
+                      </div>
+                      <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                        <div className="text-sm text-[#4B4B4B]">Block Number</div>
+                        <div className="mt-2 font-semibold text-[#111111]">{result.blockNumber ?? 'Pending'}</div>
+                      </div>
+                      <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 sm:col-span-2">
+                        <div className="text-sm text-[#4B4B4B]">Transaction Hash</div>
+                        <div className="mt-2 break-all font-mono text-sm text-[#111111]">{result.transactionHash ?? 'N/A'}</div>
+                        {result.explorerUrl && (
+                          <a href={result.explorerUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block break-all text-sm font-medium text-[#2F80ED] hover:underline">
+                            {result.explorerUrl}
+                          </a>
+                        )}
+                      </div>
+                      <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 sm:col-span-2">
+                        <div className="text-sm text-[#4B4B4B]">Contract Address</div>
+                        <div className="mt-2 break-all font-mono text-sm text-[#111111]">{result.contractAddress ?? 'N/A'}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -1,0 +1,22 @@
+{
+  "anchor": {
+    "id": "6fd15897-f0ef-4aba-886a-ad9d80400408",
+    "job_id": "9a2a77cf-4b09-4f59-be04-c18b08b137bd",
+    "status": "confirmed",
+    "network": "mainnet",
+    "chain_id": 43114,
+    "job_hash": "0x9b7077f20c7a481b176684181bc7c28cab90a96d93ce73463dccfe12ccef649e",
+    "created_at": "2026-05-24T18:57:47.772045+00:00",
+    "project_id": "0c7643e1-471f-4b04-848c-329c39f77143",
+    "updated_at": "2026-05-24T19:07:56.800078+00:00",
+    "bundle_hash": "0x1c01887f16bc967d3e53042db25c8cfe2ad9611222a1b7a2f8326190061b4b0b",
+    "evidence_id": "608a427f-25c1-4f43-b3e7-d9a86ff33801",
+    "block_number": 86276105,
+    "confirmed_at": "2026-05-24T18:57:50.947+00:00",
+    "error_message": null,
+    "evidence_hash": "0x1c01887f16bc967d3e53042db25c8cfe2ad9611222a1b7a2f8326190061b4b0b",
+    "contract_address": "0x20E772a60CEE7D8E6706E698B129FD917c3936bf",
+    "transaction_hash": "0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be",
+    "explorerUrl": "https://snowtrace.io/tx/0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be"
+  }
+}

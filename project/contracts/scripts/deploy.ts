@@ -1,53 +1,54 @@
-import { ethers } from "hardhat";
+import { network } from "hardhat";
+import { formatEther, isAddress } from "viem";
 import * as dotenv from "dotenv";
 
 dotenv.config();
 
 async function main(): Promise<void> {
-    // ── Validate inputs ──────────────────────────────────────────────────────
     const ownerAddress = process.env.OWNER_ADDRESS;
     if (!ownerAddress) {
         throw new Error("OWNER_ADDRESS is not set in .env");
     }
-    if (!ethers.isAddress(ownerAddress)) {
+    if (!isAddress(ownerAddress)) {
         throw new Error(`OWNER_ADDRESS is not a valid address: ${ownerAddress}`);
     }
 
-    const [deployer] = await ethers.getSigners();
-    const balance = await ethers.provider.getBalance(deployer.address);
+    const connection = await network.create();
+    const { viem } = connection;
+    const publicClient = await viem.getPublicClient();
+    const [deployer] = await viem.getWalletClients();
 
-    console.log("─────────────────────────────────────────");
-    console.log("  ForgEvidenceAnchor — Deployment");
-    console.log("─────────────────────────────────────────");
-    console.log("  Deployer :", deployer.address);
-    console.log("  Balance  :", ethers.formatEther(balance), "AVAX");
-    console.log("  Owner    :", ownerAddress);
-    console.log("─────────────────────────────────────────");
+    if (!deployer?.account?.address) {
+        throw new Error("No deployer account is configured for this network");
+    }
 
-    // ── Deploy ───────────────────────────────────────────────────────────────
-    const Factory = await ethers.getContractFactory("ForgEvidenceAnchor");
-    const contract = await Factory.deploy(ownerAddress);
-    await contract.waitForDeployment();
+    const balance = await publicClient.getBalance({
+        address: deployer.account.address,
+    });
 
-    const address = await contract.getAddress();
-    const deployTx = contract.deploymentTransaction();
-    const receipt = await deployTx?.wait();
+    console.log("ForgEvidenceAnchor deployment");
+    console.log("Network  :", connection.networkName);
+    console.log("Deployer :", deployer.account.address);
+    console.log("Balance  :", formatEther(balance), "AVAX");
+    console.log("Owner    :", ownerAddress);
 
-    console.log("\n  ✔  Contract deployed");
-    console.log("  Address     :", address);
-    console.log("  Tx hash     :", deployTx?.hash);
-    console.log("  Block       :", receipt?.blockNumber);
-    console.log("  Gas used    :", receipt?.gasUsed?.toString());
-    console.log("\n─────────────────────────────────────────");
-    console.log("  Add to your frontend .env:");
-    console.log(`  VITE_ANCHOR_CONTRACT_ADDRESS=${address}`);
-    console.log("─────────────────────────────────────────\n");
+    const { contract, deploymentTransaction } =
+        await viem.sendDeploymentTransaction("ForgEvidenceAnchor", [ownerAddress]);
+    const receipt = await publicClient.waitForTransactionReceipt({
+        hash: deploymentTransaction.hash,
+    });
 
-    // ── Snowtrace verification hint ───────────────────────────────────────────
-    const network = (await ethers.provider.getNetwork()).name;
-    if (network !== "hardhat" && network !== "localhost") {
-        console.log("  To verify on Snowtrace, run:");
-        console.log(`  npx hardhat verify --network ${network} ${address} "${ownerAddress}"\n`);
+    console.log("\nContract deployed");
+    console.log("Address :", contract.address);
+    console.log("Tx hash :", deploymentTransaction.hash);
+    console.log("Block   :", receipt.blockNumber.toString());
+    console.log("Gas used:", receipt.gasUsed.toString());
+    console.log("\nAdd to your frontend .env:");
+    console.log(`VITE_ANCHOR_CONTRACT_ADDRESS=${contract.address}`);
+
+    if (!["default", "hardhat", "localhost"].includes(connection.networkName)) {
+        console.log("\nSnowtrace verification is manual after the Hardhat 3 migration.");
+        console.log("Use the deployed address, constructor OWNER_ADDRESS, and the compiled artifact metadata.");
     }
 }
 

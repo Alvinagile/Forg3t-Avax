@@ -1,115 +1,101 @@
-# Forg3t Protocol — AI Unlearning on Avalanche
+# Forg3t Protocol - AI Unlearning Evidence on Avalanche
 
-![Forg3t Banner](https://img.shields.io/badge/Mainnet-Avalanche-red)
-![Forg3t Banner](https://img.shields.io/badge/Blockchain-C--Chain-E11919)
-![Forg3t Banner](https://img.shields.io/badge/Status-Production--Ready-green)
-![Live Demo](https://img.shields.io/badge/Live-Demo-blue?link=http://buildgames.forg3t.io/)
+![Avalanche](https://img.shields.io/badge/Avalanche-C--Chain-E11919)
+![Phase 2](https://img.shields.io/badge/Grant_Phase_2-Code_Readiness-blue)
 
-Forg3t is the world's first protocol dedicated to **Verifiable AI Unlearning**. It enables organizations and individuals to selectively remove data from AI models and anchor the cryptographic evidence of this removal directly onto the Avalanche blockchain, ensuring transparency, compliance, and trust without compromising model performance.
+Forg3t is a control plane for verifiable AI unlearning and suppression workflows. It creates sanitized evidence bundles, computes deterministic commitments, optionally anchors those commitments on Avalanche, and gives auditors a public verification flow without exposing raw customer data.
 
-**🚀 [Try the Live Demo](http://buildgames.forg3t.io/)**
+This repository is scoped to product and code readiness. It does not claim enterprise pilot completion, customer attestation, recorded demo completion, or production deployment unless those artifacts are separately provided and verified.
 
----
+## Why Avalanche
 
-## 🛡️ Why AI Unlearning?
+Avalanche C-Chain is used as the trust layer for evidence commitments:
 
-As AI models become more pervasive, the ability to **"forget"** becomes as important as the ability to learn.
+- Low-cost commitment anchoring for repeated evidence records.
+- Public transaction and block metadata for reviewers and auditors.
+- EVM compatibility through the existing `ForgEvidenceAnchor.sol` contract and Viem-based backend calls.
+- Future room for project-specific or enterprise-specific infrastructure.
 
-1.  **Privacy as a Right**: With global regulations like GDPR and the EU AI Act, individuals have the "Right to be Forgotten." Forg3t provides the infrastructure to execute this at the model level.
-2.  **Model Integrity**: Removing biased, outdated, or toxic data is critical for maintaining high-quality AI outputs.
-3.  **Copyright Compliance**: Enables the removal of copyrighted material from training sets with immutable proof for legal verification.
-
-## 🔺 Why Avalanche?
-
-Forg3t uses the **Avalanche C-Chain** as its primary trust layer for several critical reasons:
-
--   **Sub-second Finality**: When a user requests unlearning, they receive immediate confirmation that their evidence is anchored.
--   **Ultra-Low Cost**: Optimized smart contracts on Avalanche allow for high-frequency evidence anchoring at a fraction of the cost of other L1s.
--   **Reliability**: Avalanche's high uptime and decentralized nature provide the perfect environment for long-term storage of unlearning proofs.
--   **Advanced Customization**: Future-proof architecture designed to leverage Avalanche Subnets for enterprise-specific privacy requirements.
-
----
-
-## 🏗️ Technical Architecture
-
-Forg3t combines high-performance off-chain AI processing with secure on-chain anchoring.
+## Architecture
 
 ```mermaid
 graph TD
-    A[User Request] --> B[Forg3t Engine]
-    B --> C[AI Unlearning Logic - Off-chain]
-    C --> D[Evidence Artifact Generation - PDF]
-    D --> E[Keccak256 Hash Computation]
-    E --> F[Viem / Blockchain Service]
-    F --> G[Avalanche C-Chain]
+    A[Job or pipeline run] --> B[Evidence manifest]
+    B --> C[SHA-256 evidence hash]
+    C --> D[Supabase evidence record]
+    D --> E{Live anchoring enabled?}
+    E -->|No| F[Verification shows not submitted]
+    E -->|Yes| G[Avalanche anchor Edge Function]
     G --> H[ForgEvidenceAnchor.sol]
-    H --> I[Event Emitted: EvidenceAnchored]
-    I --> J[Public Verification via Snowtrace]
+    H --> I[Transaction hash, block number, explorer link]
+    D --> J[JSON, CSV, PDF reports]
+    J --> K[Drag and drop verification]
 ```
 
-### Core Components
--   **Frontend**: React & Vite with a premium, responsive UI.
--   **Smart Contract**: `ForgEvidenceAnchor.sol` — A high-efficiency Solidity contract for indexing unlearning jobs.
--   **Blockchain Layer**: Viem-based interface for interacting with the Avalanche C-Chain.
--   **Database**: Supabase for managing user sessions and request history.
+## Core Components
 
----
+- Frontend: React, Vite, TypeScript.
+- Backend: Supabase Edge Functions for jobs, evidence, reports, verification, integrations, anchors, and pipelines.
+- Database: Supabase Postgres migrations for multi-project data, RBAC, evidence records, anchors, exports, and pipelines.
+- Blockchain: `project/contracts/contracts/ForgEvidenceAnchor.sol` and Viem helpers for Avalanche Fuji or C-Chain.
+- SDK/API surface: curl examples and OpenAI-compatible or generic HTTP integration flows documented under `project/docs`.
 
-## 📜 Smart Contract Information
+## Getting Started
 
-The protocol's heartbeat is the **ForgEvidenceAnchor** contract, deployed on the Avalanche Mainnet.
-
--   **Contract Address**: `0x20E772a60CEE7D8E6706E698B129FD917c3936bf`
--   **Network**: Avalanche C-Chain
--   **Explorer**: [Snowtrace Explorer](https://avascan.info/blockchain/c/address/0x20E772a60CEE7D8E6706E698B129FD917c3936bf)
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
--   Node.js (v18+)
--   NPM or Yarn
--   A Supabase project for auth, database, and Edge Functions
--   Avalanche RPC and contract configuration for the anchoring service
-
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Alvinagile/Forg3t-Avax.git
-   cd Forg3t-Avax
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up environment variables:
-   Create a `.env` file in the root:
-   ```env
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_ANON_KEY=your_supabase_key
-   VITE_AVALANCHE_DEFAULT_NETWORK=mainnet
-   ```
-   For backend secrets, Avalanche anchoring setup, and Supabase Edge Function configuration, use:
-   - `project/.env.example`
-   - `project/supabase/.env.example`
-   - `project/docs/api/evidenceAnchoring.md`
-   - `project/docs/architecture/evidenceAnchoring.md`
-
-### Execution
-Run the development server:
 ```bash
+cd project
+npm install
 npm run dev
 ```
 
-### Build
-Build for production:
+Required local frontend environment:
+
+```env
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+VITE_AVALANCHE_DEFAULT_NETWORK=fuji
+```
+
+Backend and anchoring configuration is documented in:
+
+- `project/.env.example`
+- `project/supabase/.env.example`
+- `project/docs/api/evidenceAnchoring.md`
+- `project/docs/architecture/evidenceAnchoring.md`
+
+## Phase 2 Evidence Readiness
+
+Run local code checks from `project/`:
+
 ```bash
+npm test
+npm run lint
 npm run build
 ```
 
----
+Run the code-side Phase 2 smoke after configuring Supabase auth:
 
-## ⚖️ License
+```bash
+SUPABASE_URL=... \
+SUPABASE_ANON_KEY=... \
+SUPABASE_ACCESS_TOKEN=... \
+PROJECT_ID=... \
+npm run smoke:phase2
+```
 
-Built on Avalanche. Forg3t Protocol © 2026.
+To submit a real Avalanche transaction, add `PHASE2_ANCHOR=true AVALANCHE_NETWORK=fuji`. Only do this when the Edge Function has a funded anchor wallet and a deployed contract address. The smoke script prints job id, evidence id, hashes, verification result, export ids, and live transaction fields when anchoring is enabled.
+
+For the production reviewer automation flow, use:
+
+```bash
+cd project
+npm run automation:reviewer-anchor
+```
+
+This command signs in with `FORG3T_AUTOMATION_EMAIL` and `FORG3T_AUTOMATION_PASSWORD`, creates a completed job and evidence record, submits the evidence to the Avalanche anchor Edge Function, verifies the result, and creates JSON/CSV/PDF exports. Keep reviewer and automation credentials in a secure runtime environment only.
+
+Full reviewer commands, routes, expected outputs, screenshots to capture, and blocked non-code items are in `project/docs/phase2-readiness.md`.
+
+## License
+
+Built on Avalanche. Forg3t Protocol (c) 2026.

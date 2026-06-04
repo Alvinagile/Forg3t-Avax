@@ -1,0 +1,20 @@
+{
+  "verification": {
+    "evidenceId": "608a427f-25c1-4f43-b3e7-d9a86ff33801",
+    "projectName": "Phase2-Mainnet-Smoke-20260524215743 Workspace",
+    "generatedAt": "2026-05-24T18:57:45.874+00:00",
+    "targetType": "api_endpoint",
+    "executionLane": "manual",
+    "validationScore": 1,
+    "expectedHash": "0x1c01887f16bc967d3e53042db25c8cfe2ad9611222a1b7a2f8326190061b4b0b",
+    "localHash": null,
+    "verificationStatus": "anchor_confirmed",
+    "anchorStatus": "confirmed",
+    "transactionHash": "0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be",
+    "explorerUrl": "https://snowtrace.io/tx/0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be",
+    "network": "mainnet",
+    "chainId": 43114,
+    "blockNumber": 86276105,
+    "contractAddress": "0x20E772a60CEE7D8E6706E698B129FD917c3936bf"
+  }
+}

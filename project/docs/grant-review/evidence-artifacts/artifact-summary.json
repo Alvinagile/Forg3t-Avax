@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-05-25T14:00:41.702Z",
+  "appUrl": "https://buildgames.forg3t.io",
+  "projectId": "0c7643e1-471f-4b04-848c-329c39f77143",
+  "reviewedJobId": "9a2a77cf-4b09-4f59-be04-c18b08b137bd",
+  "reviewedEvidenceId": "608a427f-25c1-4f43-b3e7-d9a86ff33801",
+  "publicVerifyUrl": "https://buildgames.forg3t.io/verify/212a028eabcac5e2c3458cc9f219259d",
+  "publicVerifyApi": "https://xewxfsdrtqpthkpbhbzp.supabase.co/functions/v1/verify-evidence?token=212a028eabcac5e2c3458cc9f219259d",
+  "snowtraceTransactionUrl": "https://snowtrace.io/tx/0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be",
+  "snowtraceContractUrl": "https://snowtrace.io/address/0x20E772a60CEE7D8E6706E698B129FD917c3936bf",
+  "transactionHash": "0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be",
+  "network": "mainnet",
+  "chainId": 43114,
+  "blockNumber": 86276105,
+  "contractAddress": "0x20E772a60CEE7D8E6706E698B129FD917c3936bf",
+  "latestDailyReviewerAutomation": {
+    "checkedAt": "2026-05-27T15:26:00.000Z",
+    "jobId": "ebf420a1-3930-4432-8f42-959ac2aa0440",
+    "evidenceId": "38dbc119-e172-454f-bc0f-915b132664fc",
+    "publicVerifyUrl": "https://buildgames.forg3t.io/verify/561660d24f6634b92387050a7116eb19",
+    "transactionHash": "0x751fec0d93290cc0bcc25e42735069e88c42dd42c664e6ed064b025c22e1ec8d",
+    "snowtraceTransactionUrl": "https://snowtrace.io/tx/0x751fec0d93290cc0bcc25e42735069e88c42dd42c664e6ed064b025c22e1ec8d",
+    "anchorStatus": "confirmed",
+    "network": "mainnet",
+    "blockNumber": 86508456,
+    "artifact": "docs/grant-review/evidence-artifacts/api/daily-reviewer-anchor-run-20260527.json"
+  },
+  "files": {
+    "apiDir": "docs/grant-review/evidence-artifacts/api",
+    "exportsDir": "docs/grant-review/evidence-artifacts/exports",
+    "logsDir": "docs/grant-review/evidence-artifacts/logs"
+  }
+}

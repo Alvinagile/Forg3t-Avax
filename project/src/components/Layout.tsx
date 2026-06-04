@@ -1,7 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { Navigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { LayoutDashboard, Menu, X, User, LogOut, Settings as SettingsIcon, Brain, ShieldCheck, ListChecks, Workflow } from 'lucide-react';
+import { LayoutDashboard, Menu, X, User, LogOut, Settings as SettingsIcon, Brain, ShieldCheck, ListChecks, Workflow, ScanSearch } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authService } from '../lib/supabase';
 import { ProjectSwitcher } from './ProjectSwitcher';
@@ -26,6 +26,7 @@ export function Layout({ children }: LayoutProps) {
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, exact: true },
     { name: 'Jobs', href: '/dashboard/jobs', icon: ListChecks },
     { name: 'Create Job', href: '/unlearning', icon: Brain },
+    { name: 'Black-box', href: '/black-box', icon: ScanSearch },
     { name: 'Verify', href: '/dashboard/verify', icon: ShieldCheck },
     { name: 'Pipelines', href: '/dashboard/pipelines', icon: Workflow },
     { name: 'Settings', href: '/settings', icon: SettingsIcon },

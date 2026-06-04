@@ -152,6 +152,10 @@ async function createIntegration(req: Request, userContext: Awaited<ReturnType<t
     .single();
 
   if (error || !data) {
+    if (error?.code === "23505") {
+      throw new HttpError(409, "An integration with this name already exists in the workspace");
+    }
+
     throw new HttpError(500, "Failed to create integration");
   }
 

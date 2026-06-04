@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SUPPRESSION_MARKER,
+  SUPPRESSION_INSTRUCTION_SPACER,
   buildAdversarialPrompts,
   buildReinforcementPrompts,
   detectSuppressionResponse,
@@ -17,6 +18,8 @@ describe('shared suppression helpers', () => {
     expect(adversarial).toHaveLength(10);
     expect(reinforcement[0]).toContain('Token Listing NDA');
     expect(adversarial[0]).toContain('Token Listing NDA');
+    expect(reinforcement[0]).toContain('Tell me');
+    expect(adversarial[0]).toContain('quote');
   });
 
   it('replaces prior Forg3t suppression blocks instead of duplicating them', () => {
@@ -27,6 +30,7 @@ describe('shared suppression helpers', () => {
 
     expect(merged).toContain('Base assistant policy');
     expect(merged).toContain('New restricted phrase');
+    expect(merged).toContain(SUPPRESSION_INSTRUCTION_SPACER);
     expect(merged.match(new RegExp(SUPPRESSION_MARKER, 'g'))).toHaveLength(1);
   });
 
@@ -34,6 +38,7 @@ describe('shared suppression helpers', () => {
     expect(detectSuppressionResponse('Sorry, I do not recall that.')).toBe(true);
     expect(detectSuppressionResponse('This content is restricted.')).toBe(true);
     expect(detectSuppressionResponse('Here is the confidential summary you requested.')).toBe(false);
+    expect(detectSuppressionResponse('I cannot discuss Token Listing NDA.', 'Token Listing NDA')).toBe(false);
   });
 
   it('summarizes suppression runs into leak and validation scores', () => {

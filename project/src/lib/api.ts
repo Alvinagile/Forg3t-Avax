@@ -13,9 +13,9 @@ import type {
 type FunctionQuery = Record<string, string | number | boolean | null | undefined>;
 
 async function getFunctionHeaders(auth = true) {
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
   };
 
   if (auth) {
@@ -25,7 +25,11 @@ async function getFunctionHeaders(auth = true) {
 
     if (session?.access_token) {
       headers.Authorization = `Bearer ${session.access_token}`;
+    } else {
+      headers.Authorization = `Bearer ${anonKey}`;
     }
+  } else {
+    headers.Authorization = `Bearer ${anonKey}`;
   }
 
   return headers;

@@ -17,6 +17,9 @@ export interface AssistantSuppressionExecutionConfig {
   baseUrl: string;
   assistantId: string;
   targetText: string;
+  reinforcementPromptLimit?: number;
+  validationPromptLimit?: number;
+  maxRunPollAttempts?: number;
   onProgress?: (progress: AssistantSuppressionProgress) => Promise<void> | void;
 }
 
@@ -141,6 +144,7 @@ async function sendMessageToAssistant(params: {
   baseUrl: string;
   assistantId: string;
   message: string;
+  maxPollAttempts: number;
 }) {
   const thread = await createThread(params.apiKey, params.baseUrl);
 
@@ -173,7 +177,7 @@ async function sendMessageToAssistant(params: {
     let attempts = 0;
     let status = run.status;
 
-    while (!["completed", "failed", "cancelled", "expired"].includes(status) && attempts < 45) {
+    while (!["completed", "failed", "cancelled", "expired"].includes(status) && attempts < params.maxPollAttempts) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const state = await requestOpenAI<{ status: string }>(
         buildAssistantsUrl(params.baseUrl, `/threads/${thread.id}/runs/${run.id}`),
@@ -222,7 +226,9 @@ async function runPromptSet(params: {
   startPercent: number;
   endPercent: number;
   label: string;
+  targetText: string;
   onProgress?: (progress: AssistantSuppressionProgress) => Promise<void> | void;
+  maxRunPollAttempts: number;
 }) {
   const results: SuppressionPhaseResult[] = [];
 
@@ -234,12 +240,13 @@ async function runPromptSet(params: {
         baseUrl: params.baseUrl,
         assistantId: params.assistantId,
         message: prompt,
+        maxPollAttempts: params.maxRunPollAttempts,
       });
 
       results.push({
         prompt,
         response,
-        suppressionActive: detectSuppressionResponse(response),
+        suppressionActive: detectSuppressionResponse(response, params.targetText),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Prompt execution failed";
@@ -265,6 +272,9 @@ async function runPromptSet(params: {
 
 export async function executeAssistantSuppression(config: AssistantSuppressionExecutionConfig): Promise<AssistantSuppressionExecutionResult> {
   const start = Date.now();
+  const reinforcementPromptLimit = Math.max(1, Math.min(config.reinforcementPromptLimit ?? 6, 50));
+  const validationPromptLimit = Math.max(1, Math.min(config.validationPromptLimit ?? 4, 10));
+  const maxRunPollAttempts = Math.max(3, Math.min(config.maxRunPollAttempts ?? 12, 45));
 
   await config.onProgress?.({
     percent: 5,
@@ -288,24 +298,28 @@ export async function executeAssistantSuppression(config: AssistantSuppressionEx
   );
 
   const phase1Results = await runPromptSet({
-    prompts: buildReinforcementPrompts(config.targetText),
+    prompts: buildReinforcementPrompts(config.targetText).slice(0, reinforcementPromptLimit),
     assistantId: config.assistantId,
     apiKey: config.apiKey,
     baseUrl: config.baseUrl,
     startPercent: 20,
     endPercent: 80,
     label: "Reinforcement",
+    targetText: config.targetText,
+    maxRunPollAttempts,
     onProgress: config.onProgress,
   });
 
   const phase2Results = await runPromptSet({
-    prompts: buildAdversarialPrompts(config.targetText),
+    prompts: buildAdversarialPrompts(config.targetText).slice(0, validationPromptLimit),
     assistantId: config.assistantId,
     apiKey: config.apiKey,
     baseUrl: config.baseUrl,
     startPercent: 80,
     endPercent: 95,
     label: "Validation",
+    targetText: config.targetText,
+    maxRunPollAttempts,
     onProgress: config.onProgress,
   });
 

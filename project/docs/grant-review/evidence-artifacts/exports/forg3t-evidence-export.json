@@ -1,0 +1,145 @@
+{
+  "row": {
+    "projectName": "Phase2-Mainnet-Smoke-20260524215743 Workspace",
+    "jobId": "9a2a77cf-4b09-4f59-be04-c18b08b137bd",
+    "evidenceId": "608a427f-25c1-4f43-b3e7-d9a86ff33801",
+    "targetScopeSummary": "Phase 2 smoke target with no raw customer content",
+    "validationStatus": "completed",
+    "anchorStatus": "confirmed",
+    "evidenceHash": "0x1c01887f16bc967d3e53042db25c8cfe2ad9611222a1b7a2f8326190061b4b0b",
+    "transactionHash": "0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be",
+    "timestamp": "2026-05-24T18:57:45.874+00:00",
+    "exportGeneratedBy": "grant-reviewer@forg3t.io",
+    "exportGeneratedAt": "2026-05-25T14:00:28.848Z"
+  },
+  "detail": {
+    "id": "9a2a77cf-4b09-4f59-be04-c18b08b137bd",
+    "user_id": "95d133f3-0409-4996-a875-45d45426ad09",
+    "model_id": null,
+    "request_reason": "Avalanche Phase 2 smoke 2026-05-24T18:57:45.974Z",
+    "data_count": 0,
+    "status": "completed",
+    "processing_time_seconds": 0,
+    "blockchain_tx_hash": "0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be",
+    "audit_trail": {},
+    "created_at": "2026-05-24T18:57:45.886363+00:00",
+    "updated_at": "2026-05-25T14:00:27.388093+00:00",
+    "project_id": "0c7643e1-471f-4b04-848c-329c39f77143",
+    "created_by": "95d133f3-0409-4996-a875-45d45426ad09",
+    "integration_id": null,
+    "pipeline_id": null,
+    "pipeline_run_id": null,
+    "target_type": "api_endpoint",
+    "execution_lane": "manual",
+    "validation_score": 1,
+    "completed_at": "2026-05-24T18:57:45.874+00:00",
+    "error_message": null,
+    "target_scope_summary": "Phase 2 smoke target with no raw customer content",
+    "evidence_status": "ready",
+    "anchor_status": "confirmed",
+    "report_status": "ready",
+    "verification_status": "not_verified",
+    "metadata": {
+      "notes": "Repository smoke flow: job -> evidence -> optional Avalanche anchor -> verification -> exports.",
+      "executionSummary": null,
+      "validationSummary": {
+        "leakScore": 0,
+        "totalChecks": 1,
+        "failedChecks": 0,
+        "passedChecks": 1,
+        "processingTimeSeconds": null
+      },
+      "integrationMetadata": null
+    },
+    "projects": {
+      "id": "0c7643e1-471f-4b04-848c-329c39f77143",
+      "name": "Phase2-Mainnet-Smoke-20260524215743 Workspace",
+      "slug": "phase2-mainnet-smoke-20260524215743-95d133f3"
+    },
+    "evidence_records": {
+      "id": "608a427f-25c1-4f43-b3e7-d9a86ff33801",
+      "job_hash": "0x9b7077f20c7a481b176684181bc7c28cab90a96d93ce73463dccfe12ccef649e",
+      "manifest": {
+        "jobId": "9a2a77cf-4b09-4f59-be04-c18b08b137bd",
+        "privacy": {
+          "onChainFields": [
+            "evidenceHash",
+            "jobHash",
+            "network",
+            "contractAddress",
+            "transactionHash",
+            "blockNumber",
+            "chainId"
+          ],
+          "excludedFields": [
+            "raw customer data",
+            "prompts",
+            "sensitive target text",
+            "model outputs"
+          ]
+        },
+        "createdBy": "95d133f3-0409-4996-a875-45d45426ad09",
+        "projectId": "0c7643e1-471f-4b04-848c-329c39f77143",
+        "evidenceId": "608a427f-25c1-4f43-b3e7-d9a86ff33801",
+        "targetType": "api_endpoint",
+        "generatedAt": "2026-05-24T18:57:45.874+00:00",
+        "integration": null,
+        "projectName": "Phase2-Mainnet-Smoke-20260524215743 Workspace",
+        "projectSlug": "phase2-mainnet-smoke-20260524215743-95d133f3",
+        "executionLane": "manual",
+        "schemaVersion": "forg3t.evidence-bundle/v1",
+        "validationSummary": {
+          "status": "completed",
+          "leakScore": 0,
+          "totalChecks": 1,
+          "failedChecks": 0,
+          "passedChecks": 1,
+          "validationScore": 1,
+          "processingTimeSeconds": 0
+        },
+        "targetScopeSummary": "Phase 2 smoke target with no raw customer content",
+        "requestReasonSummary": "Avalanche Phase 2 smoke 2026-05-24T18:57:45.974Z"
+      },
+      "bundle_hash": "0x1c01887f16bc967d3e53042db25c8cfe2ad9611222a1b7a2f8326190061b4b0b",
+      "report_hash": null,
+      "evidence_hash": "0x1c01887f16bc967d3e53042db25c8cfe2ad9611222a1b7a2f8326190061b4b0b",
+      "report_status": "ready",
+      "report_payload": {
+        "jobId": "9a2a77cf-4b09-4f59-be04-c18b08b137bd",
+        "title": "Forg3t Evidence Report",
+        "status": "completed",
+        "evidenceId": "608a427f-25c1-4f43-b3e7-d9a86ff33801",
+        "targetType": "api_endpoint",
+        "generatedAt": "2026-05-24T18:57:45.874+00:00",
+        "projectName": "Phase2-Mainnet-Smoke-20260524215743 Workspace",
+        "anchorStatus": "not_submitted",
+        "executionLane": "manual",
+        "validationSummary": {
+          "status": "completed",
+          "leakScore": 0,
+          "totalChecks": 1,
+          "failedChecks": 0,
+          "passedChecks": 1,
+          "validationScore": 1,
+          "processingTimeSeconds": 0
+        },
+        "targetScopeSummary": "Phase 2 smoke target with no raw customer content",
+        "requestReasonSummary": "Avalanche Phase 2 smoke 2026-05-24T18:57:45.974Z"
+      },
+      "artifact_status": "ready",
+      "evidence_anchors": {
+        "id": "6fd15897-f0ef-4aba-886a-ad9d80400408",
+        "status": "confirmed",
+        "network": "mainnet",
+        "chain_id": 43114,
+        "block_number": 86276105,
+        "confirmed_at": "2026-05-24T18:57:50.947+00:00",
+        "error_message": null,
+        "contract_address": "0x20E772a60CEE7D8E6706E698B129FD917c3936bf",
+        "transaction_hash": "0x7af8b0376079571f2a4ff46ff76e6cdfb27f710ea4b2434c41bfdf25a167e7be"
+      },
+      "verification_status": "not_verified",
+      "public_verification_token": "212a028eabcac5e2c3458cc9f219259d"
+    }
+  }
+}

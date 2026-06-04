@@ -4,17 +4,19 @@ import { ExternalLink } from 'lucide-react';
 import { CopyButton } from '../components/CopyButton';
 import { StatusBadge } from '../components/StatusBadge';
 import { reportsApi } from '../lib/api';
-import { buildEvidenceBundleFile } from '../lib/hash';
+import { buildEvidenceBundleFile, sha256Bytes32 } from '../lib/hash';
 import { downloadTextFile, explorerTxUrl, getAnchorRecord, getEvidenceRecord } from '../lib/domainUtils';
+import { PDFGenerator } from '../lib/pdfGenerator';
 import type { JobRecord } from '../types/domain';
 
 export function EvidenceDetail() {
   const { evidenceId } = useParams<{ evidenceId: string }>();
   const [job, setJob] = useState<JobRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const loadEvidence = async () => {
     if (!evidenceId) {
       setLoading(false);
       return;
@@ -23,14 +25,62 @@ export function EvidenceDetail() {
     setLoading(true);
     setError('');
 
-    reportsApi.get({ evidenceId })
-      .then((response) => setJob(response.detail))
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'Failed to load evidence'))
-      .finally(() => setLoading(false));
+    try {
+      const response = await reportsApi.get({ evidenceId });
+      setJob(response.detail);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to load evidence');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadEvidence();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [evidenceId]);
 
   const evidence = job ? getEvidenceRecord(job) : null;
   const anchor = job ? getAnchorRecord(job) : null;
+
+  const exportReport = async (format: 'json' | 'csv' | 'pdf') => {
+    if (!evidence || !job) {
+      return;
+    }
+
+    setActionLoading(format);
+    setError('');
+
+    try {
+      const response = await reportsApi.export({ evidenceId: evidence.id, format });
+      if (format === 'csv') {
+        downloadTextFile(`forg3t-report-${evidence.id}.csv`, response.export.payload.csv ?? '', 'text/csv');
+      } else if (format === 'json') {
+        downloadTextFile(
+          `forg3t-report-${evidence.id}.json`,
+          JSON.stringify(response.export.payload.detail ?? response.export.payload.row, null, 2),
+          'application/json',
+        );
+      } else {
+        const blob = PDFGenerator.generateEvidenceReport(
+          response.export.payload.row,
+          response.export.payload.detail as JobRecord | undefined,
+        );
+        const reportHash = await sha256Bytes32(blob);
+        await reportsApi.commitPdfHash({
+          evidenceId: evidence.id,
+          exportId: response.export.id,
+          reportHash,
+        });
+        PDFGenerator.downloadPDF(blob, `forg3t-report-${evidence.id}.pdf`);
+      }
+      await loadEvidence();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to export report');
+    } finally {
+      setActionLoading('');
+    }
+  };
 
   if (loading) {
     return (
@@ -60,6 +110,12 @@ export function EvidenceDetail() {
           Sanitized bundle, report export state, and verification metadata for auditors and compliance teams.
         </p>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <section className="grid gap-6 xl:grid-cols-[1.25fr,1fr]">
         <div className="space-y-6">
@@ -119,6 +175,26 @@ export function EvidenceDetail() {
                 /verify/{evidence.public_verification_token}
                 <ExternalLink className="ml-2 h-4 w-4" />
               </a>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-xl font-bold text-[#111111]">Reviewer Exports</h2>
+            <p className="mt-2 text-sm text-[#4B4B4B]">
+              Generate the same evidence-backed JSON, CSV, and PDF exports from this evidence record.
+            </p>
+            <div className="mt-4 grid gap-3">
+              {(['json', 'csv', 'pdf'] as const).map((format) => (
+                <button
+                  key={format}
+                  type="button"
+                  onClick={() => exportReport(format)}
+                  disabled={actionLoading === format}
+                  className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-left text-sm font-semibold text-[#111111] hover:border-[#2F80ED] hover:text-[#2F80ED] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {actionLoading === format ? `Preparing ${format.toUpperCase()}...` : `Export ${format.toUpperCase()} report`}
+                </button>
+              ))}
             </div>
           </div>
 

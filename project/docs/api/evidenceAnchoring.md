@@ -94,6 +94,7 @@ curl "$SUPABASE_URL/functions/v1/anchors?evidenceId=EVIDENCE_ID" \
 ```bash
 curl -X POST "$SUPABASE_URL/functions/v1/verify-evidence" \
   -H "apikey: $SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "artifactType": "json",

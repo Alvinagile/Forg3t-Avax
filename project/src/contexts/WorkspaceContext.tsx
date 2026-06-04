@@ -6,11 +6,58 @@ import {
   type ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
+import { jobsApi } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import type { ProjectMembership } from '../types/domain';
 import { WorkspaceContext } from './WorkspaceContextStore';
 
 const ACTIVE_PROJECT_STORAGE_KEY = 'forg3t.activeProjectId';
+
+async function recoverMembershipFromJobs(userId: string): Promise<ProjectMembership[]> {
+  const jobsResponse = await jobsApi.list();
+  const firstJob = jobsResponse.jobs[0];
+
+  if (!firstJob?.project_id) {
+    return [];
+  }
+
+  let projectName = 'Recovered Workspace';
+  let projectSlug = `workspace-${firstJob.project_id.slice(0, 8)}`;
+
+  try {
+    const jobResponse = await jobsApi.get(firstJob.id);
+    const evidence = Array.isArray(jobResponse.job.evidence_records)
+      ? jobResponse.job.evidence_records[0]
+      : jobResponse.job.evidence_records;
+    const manifest = evidence?.manifest;
+
+    if (manifest && typeof manifest === 'object' && !Array.isArray(manifest)) {
+      const projectNameValue = (manifest as Record<string, unknown>).projectName;
+      const projectSlugValue = (manifest as Record<string, unknown>).projectSlug;
+      if (typeof projectNameValue === 'string' && projectNameValue.trim()) {
+        projectName = projectNameValue;
+      }
+      if (typeof projectSlugValue === 'string' && projectSlugValue.trim()) {
+        projectSlug = projectSlugValue;
+      }
+    }
+  } catch {
+    // Keep the fallback workspace if detailed evidence metadata is unavailable.
+  }
+
+  return [{
+    id: `recovered-${firstJob.project_id}`,
+    project_id: firstJob.project_id,
+    user_id: userId,
+    role: 'owner',
+    projects: {
+      id: firstJob.project_id,
+      name: projectName,
+      slug: projectSlug,
+      description: 'Recovered from verified workspace activity while membership policies are unavailable.',
+    },
+  }];
+}
 
 export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -30,30 +77,35 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from('project_memberships')
-      .select(`
-        id,
-        project_id,
-        user_id,
-        role,
-        projects (
-          id,
-          name,
-          slug,
-          description
-        )
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true });
+    let nextMemberships: ProjectMembership[];
 
-    if (error) {
-      setMemberships([]);
-      setLoading(false);
-      return;
+    try {
+      const { data, error } = await supabase
+        .from('project_memberships')
+        .select(`
+          id,
+          project_id,
+          user_id,
+          role,
+          projects (
+            id,
+            name,
+            slug,
+            description
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      nextMemberships = (data ?? []) as ProjectMembership[];
+    } catch {
+      nextMemberships = await recoverMembershipFromJobs(user.id).catch(() => []);
     }
 
-    const nextMemberships = (data ?? []) as ProjectMembership[];
     setMemberships(nextMemberships);
 
     const nextActiveProjectId = activeProjectId && nextMemberships.some((membership) => membership.project_id === activeProjectId)

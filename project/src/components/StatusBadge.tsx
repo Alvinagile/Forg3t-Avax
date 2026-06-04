@@ -15,6 +15,7 @@ const styles: Record<string, string> = {
   failed: 'bg-red-50 text-red-700 border-red-200',
   hash_mismatch: 'bg-red-50 text-red-700 border-red-200',
   anchor_not_found: 'bg-red-50 text-red-700 border-red-200',
+  anchor_failed: 'bg-red-50 text-red-700 border-red-200',
   invalid_bundle: 'bg-red-50 text-red-700 border-red-200',
   unsupported_file: 'bg-red-50 text-red-700 border-red-200',
 };

@@ -18,6 +18,7 @@ export function Pipelines() {
   const [targetType, setTargetType] = useState('assistant');
   const [anchorRequired, setAnchorRequired] = useState(true);
   const [exportRequired, setExportRequired] = useState(true);
+  const [anchorOnRun, setAnchorOnRun] = useState(false);
   const [triggerMode, setTriggerMode] = useState<'manual' | 'scheduled'>('manual');
 
   const canManagePipelines = roleCanManagePipelines(activeMembership?.role);
@@ -75,6 +76,9 @@ export function Pipelines() {
         },
         evidenceConfig: {
           artifact: 'sanitized_bundle',
+          generateOnRun: true,
+          anchorOnRun,
+          exportFormats: ['json', 'csv', 'pdf'],
         },
         anchorRequired,
         exportRequired,
@@ -87,6 +91,7 @@ export function Pipelines() {
       setTargetType('assistant');
       setAnchorRequired(true);
       setExportRequired(true);
+      setAnchorOnRun(false);
       setTriggerMode('manual');
       await loadPipelines();
     } catch (reason) {
@@ -194,6 +199,10 @@ export function Pipelines() {
                 <input type="checkbox" checked={exportRequired} onChange={(event) => setExportRequired(event.target.checked)} />
                 Export required
               </label>
+              <label className="flex items-center gap-3 text-sm text-[#111111]">
+                <input type="checkbox" checked={anchorOnRun} onChange={(event) => setAnchorOnRun(event.target.checked)} />
+                Anchor during run
+              </label>
             </div>
           </div>
           <div className="mt-6">
@@ -222,6 +231,7 @@ export function Pipelines() {
                   <StatusBadge status={pipeline.trigger_mode} />
                   <StatusBadge status={pipeline.anchor_required ? 'confirmed' : 'not_submitted'} />
                   <StatusBadge status={pipeline.export_required ? 'ready' : 'not_generated'} />
+                  <StatusBadge status={pipeline.evidence_config?.anchorOnRun ? 'anchor_pending' : 'not_submitted'} />
                 </div>
                 <h2 className="mt-3 text-2xl font-bold text-[#111111]">{pipeline.name}</h2>
                 <p className="mt-2 max-w-3xl text-sm text-[#4B4B4B]">
@@ -257,8 +267,11 @@ export function Pipelines() {
                         <StatusBadge status={run.status} />
                       </div>
                       <div className="mt-2 text-xs text-[#4B4B4B]">
-                        Jobs: {run.created_jobs.length} · Evidence: {run.created_evidence.length} · Anchors: {run.created_anchors.length} · Reports: {run.created_reports.length}
+                        Jobs: {run.created_jobs.length} | Evidence: {run.created_evidence.length} | Anchors: {run.created_anchors.length} | Reports: {run.created_reports.length}
                       </div>
+                      {run.error_message && (
+                        <div className="mt-2 text-xs text-red-700">{run.error_message}</div>
+                      )}
                     </div>
                   )) : (
                     <div className="text-sm text-[#4B4B4B]">No runs yet.</div>

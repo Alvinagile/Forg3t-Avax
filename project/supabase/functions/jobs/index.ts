@@ -8,6 +8,7 @@ import { requireUser } from "../_shared/supabase.ts";
 
 const BUILD_ROLES = ["owner", "admin", "developer"] as const;
 const OPERATE_ROLES = ["owner", "admin", "developer", "compliance"] as const;
+const BLACK_BOX_STALE_AFTER_MS = 6 * 60 * 1000;
 
 type UserContext = Awaited<ReturnType<typeof requireUser>>;
 type ServiceClient = UserContext["serviceClient"];
@@ -151,6 +152,35 @@ function sanitizeObject(input: Record<string, unknown>) {
   }
 
   return sanitized;
+}
+
+function isStaleBlackBoxJob(job: Record<string, unknown>) {
+  if (job.status !== "processing" || job.execution_lane !== "assistant_black_box") {
+    return false;
+  }
+
+  const updatedAt = typeof job.updated_at === "string" ? Date.parse(job.updated_at) : NaN;
+  if (!Number.isFinite(updatedAt)) {
+    return false;
+  }
+
+  return Date.now() - updatedAt > BLACK_BOX_STALE_AFTER_MS;
+}
+
+function processingSecondsFromJob(job: Record<string, unknown>) {
+  const metadata = asObject(job.metadata);
+  const runtime = asObject(metadata.runtime);
+  const startedAt = typeof runtime.startedAt === "string"
+    ? Date.parse(runtime.startedAt)
+    : typeof job.created_at === "string"
+    ? Date.parse(job.created_at)
+    : NaN;
+
+  if (!Number.isFinite(startedAt)) {
+    return null;
+  }
+
+  return Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
 }
 
 async function resolveProjectId(
@@ -519,6 +549,64 @@ async function updateRuntimeState(
   });
 }
 
+async function failStaleBlackBoxJob(
+  serviceClient: ServiceClient,
+  job: Record<string, unknown>,
+) {
+  if (!isStaleBlackBoxJob(job)) {
+    return job;
+  }
+
+  const completedAt = new Date().toISOString();
+  const existingMetadata = sanitizeObject(asObject(job.metadata));
+  let integration = null;
+
+  if (job.integration_id) {
+    try {
+      integration = await maybeResolveIntegrationSummary(
+        serviceClient,
+        String(job.project_id),
+        String(job.integration_id),
+      );
+    } catch {
+      integration = null;
+    }
+  }
+
+  return completeJobRecord({
+    serviceClient,
+    existingJob: job,
+    project: await loadProjectSummary(serviceClient, String(job.project_id)),
+    integration,
+    status: "failed",
+    processingTimeSeconds: processingSecondsFromJob(job),
+    validationScore: 0,
+    errorMessage: "Black-box suppression timed out before completion. Please retry; live runs now use a shorter bounded smoke set.",
+    metadata: {
+      ...existingMetadata,
+      executionSummary: sanitizeObject({
+        mode: "assistant_black_box",
+        suppressionInjected: false,
+        failedAt: completedAt,
+        reason: "timeout",
+      }),
+      runtime: sanitizeObject(sanitizeRuntime({
+        mode: "assistant_black_box",
+        percent: 100,
+        message: "Suppression run timed out",
+        startedAt: asObject(existingMetadata.runtime).startedAt,
+        completedAt,
+      })),
+    },
+    auditTrail: sanitizeObject({
+      mode: "assistant_black_box",
+      suppressionInjected: false,
+      failedAt: completedAt,
+      error: "Black-box suppression timed out before completion",
+    }),
+  });
+}
+
 async function executeBlackBoxJob(params: {
   serviceClient: ServiceClient;
   jobId: string;
@@ -564,6 +652,9 @@ async function executeBlackBoxJob(params: {
       baseUrl: String(integration.base_url),
       assistantId,
       targetText: params.targetText,
+      reinforcementPromptLimit: 6,
+      validationPromptLimit: 4,
+      maxRunPollAttempts: 12,
       onProgress: async (progress) => {
         currentJob = await updateRuntimeState(params.serviceClient, currentJob, {
           mode: "assistant_black_box",
@@ -988,9 +1079,10 @@ async function getJob(userContext: UserContext, jobId: string) {
   }
 
   await requireProjectMembership(serviceClient, data.project_id, user.id);
+  const job = await failStaleBlackBoxJob(serviceClient, data as Record<string, unknown>);
 
   return jsonResponse({
-    job: data,
+    job,
   });
 }
 

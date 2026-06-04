@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-05-27T15:09:46.521Z",
+  "appUrl": "https://buildgames.forg3t.io",
+  "jsAsset": "assets/index-ITJPot1M.js",
+  "status": "checked_after_production_deploy",
+  "containsSupabaseUrl": true,
+  "serviceRoleJwtStringPresentInBundle": false,
+  "note": "Presence/absence only; no key material is written to artifact files. The production bundle contains the public Supabase URL/anon configuration and no service-role-looking JWT string."
+}

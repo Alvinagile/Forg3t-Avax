@@ -138,27 +138,22 @@ export async function submitEvidenceCommitment(
     args: [jobHash, evidenceHash],
   });
 
-  let receipt:
-    | {
-      blockNumber: bigint;
-      status: "success" | "reverted";
-    }
-    | null = null;
-
-  try {
+  const receipt = await (async () => {
+    try {
     const settled = await publicClient.waitForTransactionReceipt({
       hash: transactionHash,
       confirmations: config.confirmations,
       timeout: 25_000,
     });
 
-    receipt = {
+    return {
       blockNumber: settled.blockNumber,
       status: settled.status,
     };
-  } catch {
-    receipt = null;
-  }
+    } catch {
+      return null;
+    }
+  })();
 
   return {
     config,

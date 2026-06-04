@@ -10,6 +10,7 @@ export type VerificationStatus =
   | 'anchor_not_found'
   | 'anchor_pending'
   | 'anchor_confirmed'
+  | 'anchor_failed'
   | 'invalid_bundle'
   | 'unsupported_file';
 
@@ -198,7 +199,7 @@ export interface VerificationResponse {
   validationScore?: number | null;
   expectedHash?: string | null;
   localHash?: string | null;
-  verificationStatus: VerificationStatus | 'anchor_pending' | 'anchor_confirmed' | 'anchor_not_found';
+  verificationStatus: VerificationStatus;
   anchorStatus?: AnchorStatus | 'not_submitted';
   transactionHash?: string | null;
   explorerUrl?: string | null;

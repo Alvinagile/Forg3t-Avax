@@ -31,6 +31,7 @@ function App() {
             <Route path="/verify" element={<Verify />} />
             <Route path="/verify/:evidenceId" element={<Verify />} />
             <Route path="/unlearning" element={<Unlearning />} />
+            <Route path="/black-box" element={<Unlearning mode="blackBox" />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>

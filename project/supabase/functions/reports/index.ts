@@ -52,6 +52,26 @@ async function loadDetailedRecord(
   serviceClient: Awaited<ReturnType<typeof requireUser>>["serviceClient"],
   filters: { evidenceId?: string | null; jobId?: string | null },
 ) {
+  let resolvedJobId = filters.jobId ?? null;
+
+  if (filters.evidenceId) {
+    const { data: evidenceRecord, error: evidenceError } = await serviceClient
+      .from("evidence_records")
+      .select("id, job_id")
+      .eq("id", filters.evidenceId)
+      .maybeSingle();
+
+    if (evidenceError) {
+      throw new HttpError(500, "Failed to load evidence record");
+    }
+
+    if (!evidenceRecord?.job_id) {
+      throw new HttpError(404, "Evidence record not found");
+    }
+
+    resolvedJobId = evidenceRecord.job_id as string;
+  }
+
   let query = serviceClient
     .from("unlearning_requests")
     .select(`
@@ -87,12 +107,8 @@ async function loadDetailedRecord(
       )
     `);
 
-  if (filters.jobId) {
-    query = query.eq("id", filters.jobId);
-  }
-
-  if (filters.evidenceId) {
-    query = query.eq("evidence_records.id", filters.evidenceId);
+  if (resolvedJobId) {
+    query = query.eq("id", resolvedJobId);
   }
 
   const { data, error } = await query.limit(1).maybeSingle();
@@ -103,6 +119,10 @@ async function loadDetailedRecord(
 
   if (!data) {
     throw new HttpError(404, "Report target not found");
+  }
+
+  if (filters.evidenceId && Array.isArray(data.evidence_records)) {
+    data.evidence_records = data.evidence_records.filter((record) => record.id === filters.evidenceId);
   }
 
   return data;

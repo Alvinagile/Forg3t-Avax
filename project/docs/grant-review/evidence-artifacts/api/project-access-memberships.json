@@ -1,0 +1,18 @@
+﻿{
+    "memberships":  [
+                        {
+                            "id":  "9daadbf5-de7f-4ae4-8329-153700a6ace3",
+                            "project_id":  "0c7643e1-471f-4b04-848c-329c39f77143",
+                            "user_id":  "3bf33ee4-d83b-46f1-839b-a8ba57bd862f",
+                            "role":  "admin",
+                            "created_at":  "2026-05-24T19:44:27.291216+00:00",
+                            "updated_at":  "2026-05-24T19:44:27.291216+00:00",
+                            "users":  {
+                                          "id":  "3bf33ee4-d83b-46f1-839b-a8ba57bd862f",
+                                          "email":  "grant-reviewer@forg3t.io"
+                                      }
+                        }
+                    ],
+    "source":  "privileged_rest_sanitized",
+    "serviceKeyIncluded":  false
+}

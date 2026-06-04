@@ -1,0 +1,24 @@
+{
+  "integration": {
+    "id": "3ea02f56-d880-4233-a1f8-a1c049a7c96f",
+    "project_id": "0c7643e1-471f-4b04-848c-329c39f77143",
+    "name": "Grant Review Generic HTTP Smoke 2026-05-25",
+    "provider_type": "generic_http",
+    "base_url": "https://buildgames.forg3t.io",
+    "model_identifier": "generic-http-smoke",
+    "auth_type": "none",
+    "auth_header_name": null,
+    "status": "not_tested",
+    "last_tested_at": null,
+    "last_error": null,
+    "metadata": {
+      "assistantId": null,
+      "description": "Grant review connectivity smoke. No external AI provider credential used.",
+      "defaultHeaders": {},
+      "healthcheckPath": "/"
+    },
+    "created_at": "2026-05-25T14:00:34.527184+00:00",
+    "updated_at": "2026-05-25T14:00:34.527184+00:00",
+    "secretConfigured": false
+  }
+}

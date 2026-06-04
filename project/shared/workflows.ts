@@ -25,6 +25,10 @@ export function resolveVerificationState(input: VerificationStateInput) {
     return input.localHash ? 'valid' as const : 'anchor_confirmed' as const;
   }
 
+  if (input.anchorStatus === 'failed') {
+    return 'anchor_failed' as const;
+  }
+
   return 'anchor_not_found' as const;
 }
 

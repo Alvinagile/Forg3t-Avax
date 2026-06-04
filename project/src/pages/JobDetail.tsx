@@ -370,7 +370,7 @@ export function JobDetail() {
                 </div>
                 <div className="mt-1 text-sm text-[#4B4B4B]">
                   {job.integrations.provider_type.replaceAll('_', ' ')}
-                  {job.integrations.model_identifier ? ` · ${job.integrations.model_identifier}` : ''}
+                  {job.integrations.model_identifier ? ` | ${job.integrations.model_identifier}` : ''}
                 </div>
               </div>
             )}

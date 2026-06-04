@@ -1,0 +1,27 @@
+{
+  "checkedAt": "2026-05-27T15:26:00.000Z",
+  "appUrl": "https://buildgames.forg3t.io",
+  "projectId": "0c7643e1-471f-4b04-848c-329c39f77143",
+  "automationCommand": "npm run automation:reviewer-anchor",
+  "sharedReviewerAutomationEmail": "buildgames-phase2-reviewer-202605271524@forg3t.io",
+  "role": "developer",
+  "jobId": "ebf420a1-3930-4432-8f42-959ac2aa0440",
+  "evidenceId": "38dbc119-e172-454f-bc0f-915b132664fc",
+  "evidenceHash": "0xb15bf5f873314ae542bba05b0cee90c7fa4163b079f3efa1781f3e46f78baff4",
+  "jobHash": "0x40796f8a48c9ef0f2238344e403371e8ac27ea188474804d20756ceef88c2a57",
+  "publicVerifyRoute": "https://buildgames.forg3t.io/verify/561660d24f6634b92387050a7116eb19",
+  "anchorStatus": "confirmed",
+  "verificationStatus": "anchor_confirmed",
+  "verificationAnchorStatus": "confirmed",
+  "network": "mainnet",
+  "chainId": 43114,
+  "blockNumber": 86508456,
+  "transactionHash": "0x751fec0d93290cc0bcc25e42735069e88c42dd42c664e6ed064b025c22e1ec8d",
+  "explorerUrl": "https://snowtrace.io/tx/0x751fec0d93290cc0bcc25e42735069e88c42dd42c664e6ed064b025c22e1ec8d",
+  "exports": {
+    "json": "f7d39c26-ab20-4e17-a62f-e880450596d3",
+    "csv": "4bbd3218-2f9b-4b91-867b-8752a6b9e63e",
+    "pdf": "54f466b6-814f-4f19-9cda-ea7ae271d13a"
+  },
+  "secretHandling": "No passwords, access tokens, service-role keys, or Avalanche private keys are stored in this artifact."
+}

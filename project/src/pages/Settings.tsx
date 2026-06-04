@@ -15,6 +15,7 @@ export function Settings() {
   const { activeMembership, refresh: refreshWorkspace } = useWorkspace();
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [membershipError, setMembershipError] = useState('');
   const [email, setEmail] = useState(user?.email ?? '');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -49,16 +50,35 @@ export function Settings() {
 
     setLoading(true);
     setError('');
+    setMembershipError('');
 
     try {
-      const [integrationResponse, membershipResponse] = await Promise.all([
-        integrationsApi.list(activeMembership.project_id),
-        projectAccessApi.list(activeMembership.project_id),
-      ]);
+      const integrationResponse = await integrationsApi.list(activeMembership.project_id);
       setIntegrations(integrationResponse.integrations);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Failed to load integrations');
+    }
+
+    try {
+      const membershipResponse = await projectAccessApi.list(activeMembership.project_id);
       setMemberships(membershipResponse.memberships);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Failed to load workspace settings');
+      setMembershipError(reason instanceof Error ? reason.message : 'Failed to load project members');
+      setMemberships(user ? [{
+        id: activeMembership.id,
+        project_id: activeMembership.project_id,
+        user_id: user.id,
+        role: activeMembership.role,
+        created_at: '',
+        updated_at: '',
+        users: {
+          id: user.id,
+          email: user.email ?? 'Current user',
+          package_type: 'individual',
+          created_at: '',
+          updated_at: '',
+        },
+      }] : []);
     } finally {
       setLoading(false);
     }
@@ -327,7 +347,7 @@ export function Settings() {
                 <p className="text-sm text-[#4B4B4B]">Manage owners, admins, auditors, compliance, and viewers.</p>
               </div>
             </div>
-            {canManageProject && (
+            {canManageProject && !membershipError && (
               <div className="mt-6 grid gap-3 md:grid-cols-[1fr,180px,auto]">
                 <input
                   value={memberEmail}
@@ -354,6 +374,11 @@ export function Settings() {
               </div>
             )}
             <div className="mt-6 space-y-3">
+              {membershipError && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  Member list is temporarily limited while workspace access policies are refreshed. Your current role is shown below and backend permission checks remain active.
+                </div>
+              )}
               {loading ? (
                 <div className="rounded-xl border border-dashed border-gray-200 p-4 text-sm text-[#4B4B4B]">
                   Loading members...
@@ -366,7 +391,7 @@ export function Settings() {
                       <div className="mt-1 text-sm text-[#4B4B4B]">{membership.users.package_type} plan</div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {canManageProject ? (
+                      {canManageProject && !membershipError ? (
                         <select
                           value={membership.role}
                           onChange={(event) => void updateMembershipRole(membership.id, event.target.value as ProjectRole)}
@@ -379,7 +404,7 @@ export function Settings() {
                       ) : (
                         <StatusBadge status={membership.role} />
                       )}
-                      {canManageProject && membership.role !== 'owner' && (
+                      {canManageProject && !membershipError && membership.role !== 'owner' && (
                         <button
                           type="button"
                           onClick={() => void removeMembership(membership.id)}

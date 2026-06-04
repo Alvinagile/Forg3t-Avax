@@ -29,6 +29,11 @@ describe('shared workflow helpers', () => {
       expectedHash: null,
       anchorStatus: 'not_submitted',
     })).toBe('anchor_not_found');
+
+    expect(resolveVerificationState({
+      expectedHash: '0xabc',
+      anchorStatus: 'failed',
+    })).toBe('anchor_failed');
   });
 
   it('extracts pipeline scope items for runs', () => {

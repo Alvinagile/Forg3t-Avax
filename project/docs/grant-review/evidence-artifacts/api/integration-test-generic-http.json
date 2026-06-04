@@ -1,0 +1,9 @@
+{
+  "test": {
+    "success": true,
+    "status": "connected",
+    "checkedAt": "2026-05-25T14:00:36.541Z",
+    "responseCode": 200,
+    "message": "Connection successful"
+  }
+}

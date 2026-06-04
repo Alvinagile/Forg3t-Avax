@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Link2,
   Route,
+  ScanSearch,
   ShieldCheck,
 } from 'lucide-react';
 import { JobsTable } from '../components/JobsTable';
@@ -35,18 +36,21 @@ export function Dashboard() {
     setLoading(true);
     setError('');
 
-    Promise.all([
+    Promise.allSettled([
       jobsApi.list(activeMembership.project_id),
       integrationsApi.list(activeMembership.project_id),
       pipelinesApi.list(activeMembership.project_id),
     ])
       .then(([jobsResponse, integrationsResponse, pipelinesResponse]) => {
-        setJobs(jobsResponse.jobs);
-        setIntegrations(integrationsResponse.integrations);
-        setPipelines(pipelinesResponse.pipelines);
-      })
-      .catch((reason) => {
-        setError(reason instanceof Error ? reason.message : 'Failed to load dashboard');
+        if (jobsResponse.status === 'fulfilled') {
+          setJobs(jobsResponse.value.jobs);
+        } else {
+          setJobs([]);
+          setError(jobsResponse.reason instanceof Error ? jobsResponse.reason.message : 'Failed to load jobs');
+        }
+
+        setIntegrations(integrationsResponse.status === 'fulfilled' ? integrationsResponse.value.integrations : []);
+        setPipelines(pipelinesResponse.status === 'fulfilled' ? pipelinesResponse.value.pipelines : []);
       })
       .finally(() => setLoading(false));
   }, [activeMembership?.project_id]);
@@ -88,13 +92,20 @@ export function Dashboard() {
               and hand auditors a verification flow without exposing private tenant data.
             </p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <Link
               to="/unlearning"
               className="inline-flex items-center justify-center rounded-xl bg-[#2F80ED] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#2870CE]"
             >
               Create Job
               <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+            <Link
+              to="/black-box"
+              className="inline-flex items-center justify-center rounded-xl bg-[#111111] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#2B2B2B]"
+            >
+              Black-box
+              <ScanSearch className="ml-2 h-4 w-4" />
             </Link>
             <Link
               to="/dashboard/verify"
@@ -152,6 +163,22 @@ export function Dashboard() {
 
         <div className="space-y-6">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl bg-white p-2 text-[#111111]">
+                  <ScanSearch className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[#111111]">Black-box Suppression</h3>
+                  <p className="mt-1 text-sm text-[#4B4B4B]">
+                    Run an OpenAI Assistant suppression smoke and generate evidence.
+                  </p>
+                  <Link to="/black-box" className="mt-3 inline-flex text-sm font-semibold text-[#2F80ED] hover:underline">
+                    Open black-box flow
+                  </Link>
+                </div>
+              </div>
+            </div>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold text-[#111111]">Integrations</h3>

@@ -17,6 +17,7 @@ type VerificationStatus =
   | "anchor_not_found"
   | "anchor_pending"
   | "anchor_confirmed"
+  | "anchor_failed"
   | "invalid_bundle"
   | "unsupported_file";
 
@@ -303,17 +304,12 @@ function buildVerificationResponse(params: {
     ? params.evidenceRecord.projects[0]
     : params.evidenceRecord.projects;
   const expectedHash = getExpectedHash(params.evidenceRecord, params.artifactType);
-  let verificationStatus: VerificationStatus = params.bundleState ?? "anchor_not_found";
-
-  if (params.bundleState) {
-    verificationStatus = params.bundleState;
-  } else {
-    verificationStatus = resolveVerificationState({
+  const verificationStatus: VerificationStatus = params.bundleState
+    ?? resolveVerificationState({
       expectedHash,
       localHash: params.localHash,
       anchorStatus: params.anchor?.status ?? null,
     }) as VerificationStatus;
-  }
 
   const baseResponse = {
     evidenceId: params.evidenceRecord.id,
@@ -419,7 +415,7 @@ async function verifyEvidenceUpload(req: Request) {
   }
 
   const maybeUser = await maybeGetUser(req);
-  let evidenceRecord: Record<string, unknown> | null = null;
+  let evidenceRecord: Record<string, unknown> | null;
   let publicMode = !maybeUser.user;
 
   if (body.verificationToken) {

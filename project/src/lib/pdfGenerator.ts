@@ -126,7 +126,6 @@ export class PDFGenerator {
       doc.setFont('courier', 'normal');
       doc.setFontSize(7.5);
       doc.text(split.slice(0, 42), 18, y);
-      y += Math.min(split.length, 42) * 3.2;
     }
 
     doc.setFillColor(colors.slate[0], colors.slate[1], colors.slate[2]);

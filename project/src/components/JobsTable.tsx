@@ -69,7 +69,7 @@ export function JobsTable({ jobs, loading, emptyMessage = 'No jobs yet.' }: Jobs
                         <div className="font-medium text-[#111111]">{job.integrations.name}</div>
                         <div className="text-xs text-[#4B4B4B]">
                           {job.integrations.provider_type.replaceAll('_', ' ')}
-                          {job.integrations.model_identifier ? ` · ${job.integrations.model_identifier}` : ''}
+                          {job.integrations.model_identifier ? ` | ${job.integrations.model_identifier}` : ''}
                         </div>
                       </div>
                     ) : (
