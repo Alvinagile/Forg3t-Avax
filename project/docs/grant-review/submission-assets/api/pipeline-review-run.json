@@ -1,0 +1,30 @@
+{
+  "run": {
+    "id": "b9f79cfb-dda9-4e92-b692-61e706d77014",
+    "pipelineId": "67edd321-cb7e-4085-a64c-e83e9b7a0fa8",
+    "status": "completed",
+    "createdJobs": [
+      "ca1d1deb-fd47-4c3f-b1ea-5280a3624f2f",
+      "ed33a271-7f21-4b23-a2dc-408f796cd8b7",
+      "357da9b3-69d7-4e17-8917-8c502ddc6e5b"
+    ],
+    "createdEvidence": [
+      "320d4ddb-4319-4d1d-b450-340664838bb4",
+      "dba6d583-4df7-4be8-8736-7940cc5be94d",
+      "52c79fb1-f3d5-4325-b9b6-38d58d2fbcad"
+    ],
+    "createdAnchors": [],
+    "createdReports": [
+      "ebc3b231-d6c9-4cb2-bdf5-6c2caec01a5a",
+      "6ff35104-0f19-48c7-9a6d-9361fe5a945e",
+      "1a3e9305-cb6e-4378-bb38-62c47d55a281",
+      "dceb110e-6922-450a-bd75-292c93038dc4",
+      "259e60ec-ca5b-4b1b-983a-40b97d932752",
+      "d7fc9f92-43b1-4ffe-8e5c-57a7edf1eb24",
+      "7664b8ff-8a93-4911-9878-dd6b96dcefdd",
+      "29dfb486-8522-4da5-9a9c-1f6c0489db47",
+      "8536dc47-df96-4c17-a4c2-1b26a87d598e"
+    ],
+    "anchorRequested": false
+  }
+}

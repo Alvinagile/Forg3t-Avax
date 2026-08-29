@@ -1,0 +1,173 @@
+{
+  "pipelines": [
+    {
+      "id": "67edd321-cb7e-4085-a64c-e83e9b7a0fa8",
+      "project_id": "0c7643e1-471f-4b04-848c-329c39f77143",
+      "name": "Phase 2 Review Pipeline 2026-06-04",
+      "description": "Reviewer evidence pipeline for repeated AI unlearning verification, sanitized evidence generation, and report exports.",
+      "target_scope": {
+        "items": [
+          {
+            "targetType": "api_endpoint",
+            "requestReason": "GDPR deletion verification sample",
+            "targetScopeSummary": "Tenant deletion evidence sample"
+          },
+          {
+            "targetType": "assistant",
+            "requestReason": "Regulated AI suppression sample",
+            "targetScopeSummary": "Assistant black-box suppression evidence sample"
+          },
+          {
+            "targetType": "model",
+            "requestReason": "Post-update regression sample",
+            "targetScopeSummary": "Repeatable verification after model or policy change"
+          }
+        ],
+        "summary": "Repeatable Phase 2 reviewer scope across API-based AI suppression cases without raw customer content."
+      },
+      "validation_config": {
+        "reviewMode": "manual",
+        "defaultValidationScore": 1
+      },
+      "evidence_config": {
+        "artifact": "sanitized_bundle",
+        "anchorOnRun": false,
+        "exportFormats": [
+          "json",
+          "csv",
+          "pdf"
+        ],
+        "generateOnRun": true
+      },
+      "anchor_required": true,
+      "export_required": true,
+      "trigger_mode": "manual",
+      "created_by": "abfd7457-5121-4916-880d-e1a2cfc91913",
+      "created_at": "2026-06-04T09:29:27.605499+00:00",
+      "updated_at": "2026-06-04T09:29:27.605499+00:00",
+      "pipeline_runs": [
+        {
+          "id": "b9f79cfb-dda9-4e92-b692-61e706d77014",
+          "status": "completed",
+          "created_at": "2026-06-04T09:29:28.47293+00:00",
+          "started_at": "2026-06-04T09:29:28.4+00:00",
+          "completed_at": "2026-06-04T09:29:29.507+00:00",
+          "created_jobs": [
+            "ca1d1deb-fd47-4c3f-b1ea-5280a3624f2f",
+            "ed33a271-7f21-4b23-a2dc-408f796cd8b7",
+            "357da9b3-69d7-4e17-8917-8c502ddc6e5b"
+          ],
+          "error_message": null,
+          "created_anchors": [],
+          "created_reports": [
+            "ebc3b231-d6c9-4cb2-bdf5-6c2caec01a5a",
+            "6ff35104-0f19-48c7-9a6d-9361fe5a945e",
+            "1a3e9305-cb6e-4378-bb38-62c47d55a281",
+            "dceb110e-6922-450a-bd75-292c93038dc4",
+            "259e60ec-ca5b-4b1b-983a-40b97d932752",
+            "d7fc9f92-43b1-4ffe-8e5c-57a7edf1eb24",
+            "7664b8ff-8a93-4911-9878-dd6b96dcefdd",
+            "29dfb486-8522-4da5-9a9c-1f6c0489db47",
+            "8536dc47-df96-4c17-a4c2-1b26a87d598e"
+          ],
+          "created_evidence": [
+            "320d4ddb-4319-4d1d-b450-340664838bb4",
+            "dba6d583-4df7-4be8-8736-7940cc5be94d",
+            "52c79fb1-f3d5-4325-b9b6-38d58d2fbcad"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "f58bb8fc-836e-4b7e-8f4b-622152ceb668",
+      "project_id": "0c7643e1-471f-4b04-848c-329c39f77143",
+      "name": "Grant Review Evidence Pipeline 2026-05-25",
+      "description": "Pipeline smoke for Avalanche Phase 2 review. Creates multiple completed jobs, evidence records, and exports without submitting a live anchor transaction.",
+      "target_scope": {
+        "items": [
+          {
+            "targetType": "api_endpoint",
+            "requestReason": "Pipeline smoke item A",
+            "targetScopeSummary": "Synthetic compliance target A with no raw customer data"
+          },
+          {
+            "targetType": "document",
+            "requestReason": "Pipeline smoke item B",
+            "targetScopeSummary": "Synthetic compliance target B with no raw customer data"
+          }
+        ],
+        "summary": "Grant review multi-job pipeline proof"
+      },
+      "validation_config": {
+        "defaultValidationScore": 1
+      },
+      "evidence_config": {
+        "anchorOnRun": false,
+        "exportFormats": [
+          "json",
+          "csv",
+          "pdf"
+        ],
+        "generateOnRun": true
+      },
+      "anchor_required": false,
+      "export_required": true,
+      "trigger_mode": "manual",
+      "created_by": "3bf33ee4-d83b-46f1-839b-a8ba57bd862f",
+      "created_at": "2026-05-25T14:00:38.669961+00:00",
+      "updated_at": "2026-05-25T14:00:38.669961+00:00",
+      "pipeline_runs": [
+        {
+          "id": "f911c7b2-6a05-43d9-9e4d-be1773c88209",
+          "status": "completed",
+          "created_at": "2026-05-25T14:00:40.431186+00:00",
+          "started_at": "2026-05-25T14:00:40.399+00:00",
+          "completed_at": "2026-05-25T14:00:40.738+00:00",
+          "created_jobs": [
+            "2cf83e99-2893-47a4-b276-a677c605f44c",
+            "9d892eba-f113-4851-8535-a266555b1bfc"
+          ],
+          "error_message": null,
+          "created_anchors": [],
+          "created_reports": [
+            "66292d13-c153-474c-9689-69cd2c9163af",
+            "9a2a357e-025b-443b-8083-bc0b96a86e63",
+            "44d3c509-8f88-4525-9d03-99fa6a38c4cf",
+            "8237306a-65fd-4a22-9d11-cdd84098a71b",
+            "4387e489-fe03-46c0-bcac-6ad0a0aa6a5f",
+            "95a450e1-dd7e-436f-aa6f-28a514b3a7ab"
+          ],
+          "created_evidence": [
+            "3f08a83a-7177-4094-b89d-53f127150a73",
+            "1d797640-5b60-415b-83f1-aa88eeda4f73"
+          ]
+        },
+        {
+          "id": "0d8ad723-f632-4d84-9097-b3ee6fc20cd4",
+          "status": "completed",
+          "created_at": "2026-05-27T11:18:40.152551+00:00",
+          "started_at": "2026-05-27T11:18:40.089+00:00",
+          "completed_at": "2026-05-27T11:18:40.557+00:00",
+          "created_jobs": [
+            "e28089d6-9259-4bcc-ae22-32230ef5801b",
+            "313229ad-6d62-45c9-824a-3b2a75284b93"
+          ],
+          "error_message": null,
+          "created_anchors": [],
+          "created_reports": [
+            "c71cc18f-1088-47a4-9597-04d029d2a996",
+            "4ff77e56-196f-4466-9e93-11f11834145d",
+            "ef6da1dd-9ee2-48c9-8fdf-f1b084473955",
+            "496b1473-182e-47a9-bdb6-31758b96ad4e",
+            "a18e0954-f769-4c5e-aaec-ba61f712024e",
+            "02384d61-4190-49c9-8958-34cd2af3cc49"
+          ],
+          "created_evidence": [
+            "b4a51a62-3fac-4c39-9c28-5753e728c5b6",
+            "c2d8e12d-a53f-4155-8058-ea907a887a3c"
+          ]
+        }
+      ]
+    }
+  ]
+}

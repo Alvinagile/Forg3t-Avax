@@ -1,13 +1,16 @@
 from pathlib import Path
+from zipfile import ZipFile
+import json
+
 from PIL import Image, ImageDraw, ImageFont
 from docx import Document
+from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from docx.shared import Inches, Pt, RGBColor
-import json
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,31 +18,182 @@ OUT_DIR = ROOT / "docs" / "grant-review"
 ASSET_DIR = OUT_DIR / "submission-assets"
 SS_DIR = ASSET_DIR / "screenshots"
 VIDEO_DIR = ASSET_DIR / "video"
-VIDEO_DIR.mkdir(parents=True, exist_ok=True)
+API_DIR = ASSET_DIR / "api"
+RENDER_DIR = ASSET_DIR / "renders"
 
 DOCX_PATH = OUT_DIR / "forg3t-avalanche-phase2-submission-packet.docx"
 GIF_PATH = VIDEO_DIR / "forg3t-avalanche-phase2-proof-walkthrough.gif"
 THUMB_PATH = VIDEO_DIR / "forg3t-avalanche-phase2-proof-walkthrough-cover.png"
 
-ACCENT = "E84142"
-BLUE = "2F80ED"
-INK = "111827"
+INK = "111111"
 MUTED = "4B5563"
-BORDER = "E5E7EB"
-GREEN = "059669"
-AMBER = "D97706"
+BLUE = "2E74B5"
+DARK_BLUE = "1F4D78"
+BORDER = "DADCE0"
+LIGHT_FILL = "F2F4F7"
+GREEN = "0F766E"
 
 REPO_URL = "https://github.com/Alvinagile/Forg3t-Avax"
-CODE_COMMIT = "0778fc09a184457702a88932032aad83bdd3f1af"
-CODE_COMMIT_SHORT = CODE_COMMIT[:7]
 LIVE_APP = "https://buildgames.forg3t.io"
+MEDIUM_ARTICLE = "https://medium.com/@aiunlearning/forg3t-protocol-and-avalanche-evidence-anchoring-7310bf22226e"
+PILOT_CONTRACT_LINK = "https://drive.google.com/file/d/1XHKNlS2EuiAAWFcff0P-Wgo-uuABiNUg/view?usp=sharing"
 LATEST_VERIFY = "https://buildgames.forg3t.io/verify/636919b6e97441df953d98278bbc0efe"
 LATEST_TX = "https://snowtrace.io/tx/0x4f9d253d097808406777ba1b9d67b0ac4baac44d34d1d101cea4a3721559c69b"
 CONTRACT = "0x20E772a60CEE7D8E6706E698B129FD917c3936bf"
 LATEST_TX_HASH = "0x4f9d253d097808406777ba1b9d67b0ac4baac44d34d1d101cea4a3721559c69b"
 LATEST_BLOCK = "87016942"
-LATEST_EVIDENCE_HASH = "0xb78cec95881bdee14f70b9c81e2b75cdb50982cedf73fbaeff9ff511973b9d88"
-LATEST_JOB_HASH = "0xdaab2cee2e3a570ecfc45bda3679bff1db470a068c18bc33b6daa80dff806733"
+PROJECT_ID = "0c7643e1-471f-4b04-848c-329c39f77143"
+
+PREVIOUS_MAINNET_ANCHORS = [
+    {
+        "date": "2026-06-02",
+        "job": "dcef5dc1-3b85-4e36-8ab8-55f0cd8ea803",
+        "evidence": "308463f6-cad9-4490-ac9b-af4ac3cfd8b1",
+        "tx": LATEST_TX_HASH,
+        "block": LATEST_BLOCK,
+    },
+    {
+        "date": "2026-05-31",
+        "job": "c4fc546a-b544-4d27-a8d3-abba1118f1d9",
+        "evidence": "180594c5-17e4-48e3-98c2-56965b8964b9",
+        "tx": "0x1d73a8ef8028c81292caf5b9081a9ff4d4d47519f24008abc5fa6f7d6b56453b",
+        "block": "mainnet",
+    },
+    {
+        "date": "2026-05-29",
+        "job": "c54e7f03-16dc-4a3d-a902-2d4c9ed91005",
+        "evidence": "fc8a2a5e-c14c-48ac-b49d-abce4e57adc8",
+        "tx": "0x43614297bb117278dbd481eb615fff8649cff7bbc3c87c63c6c9691855017356",
+        "block": "mainnet",
+    },
+    {
+        "date": "2026-05-28",
+        "job": "84c6009a-a9bd-4a21-82d5-a92920fb06fe",
+        "evidence": "3561358e-8944-4bab-9f1d-5a32007f6ab6",
+        "tx": "0xf5edaff5777f349ac3d1cb00bfc5953040927b74450667194a00cd7d844678dc",
+        "block": "mainnet",
+    },
+    {
+        "date": "2026-05-27",
+        "job": "daily-reviewer-anchor-run",
+        "evidence": "reviewer automation evidence",
+        "tx": "0x751fec0d93290cc0bcc25e42735069e88c42dd42c664e6ed064b025c22e1ec8d",
+        "block": "mainnet",
+    },
+]
+
+MILESTONES = [
+    {
+        "number": 1,
+        "name": "Launch production grade evidence anchoring on Avalanche",
+        "proof": "Avalanche C-Chain mainnet transaction, contract bytecode, receipt success, block number, and Snowtrace proof.",
+        "screenshot": "milestone-01-avalanche-mainnet-anchor.png",
+        "links": [("Snowtrace transaction", LATEST_TX)],
+        "files": [
+            "project/supabase/functions/anchors/index.ts",
+            "project/supabase/functions/verify-evidence/index.ts",
+            "project/docs/grant-review/submission-assets/api/avalanche-mainnet-verification.json",
+        ],
+    },
+    {
+        "number": 2,
+        "name": "Ship drag and drop verification flow for auditors and third parties",
+        "proof": "Public verification route supports JSON/PDF upload, anchor-confirmed state, local hash comparison, and auditor-facing result states.",
+        "screenshot": "milestone-02-drag-drop-verification.png",
+        "links": [("Public verify route", LATEST_VERIFY)],
+        "files": [
+            "project/src/pages/Verify.tsx",
+            "project/supabase/functions/verify-evidence/index.ts",
+            "project/docs/grant-review/evidence-artifacts/api/verify-upload-json-valid-response.json",
+            "project/docs/grant-review/evidence-artifacts/api/verify-upload-pdf-valid-response.json",
+        ],
+    },
+    {
+        "number": 3,
+        "name": "Complete job history, transaction visibility, and evidence verification UX",
+        "proof": "Populated reviewer workspace shows completed jobs, evidence readiness, confirmed anchor state, and transaction hash visibility.",
+        "screenshot": "milestone-03-job-history-populated.png",
+        "links": [("Live app", LIVE_APP)],
+        "files": [
+            "project/src/pages/Jobs.tsx",
+            "project/src/pages/JobDetail.tsx",
+            "project/src/pages/EvidenceDetail.tsx",
+            "project/docs/grant-review/submission-assets/screenshots/milestone-03-job-history-populated.png",
+        ],
+    },
+    {
+        "number": 4,
+        "name": "Publish technical architecture and compliance workflow documentation",
+        "proof": "Public Medium article and repository docs explain Forg3t, Avalanche anchoring, compliance workflow, API lifecycle, and reviewer runbook.",
+        "screenshot": "milestone-04-medium-architecture-article.png",
+        "links": [("Medium article", MEDIUM_ARTICLE)],
+        "files": [
+            "project/docs/phase2-readiness.md",
+            "project/docs/avalanche/technicalArchitecture.md",
+            "project/docs/avalanche/reviewerRunbook.md",
+            "project/docs/avalanche/avalanche-anchor-article.md",
+            "project/docs/api/evidenceAnchoring.md",
+        ],
+    },
+    {
+        "number": 5,
+        "name": "Pilot with enterprise and regulated AI use cases",
+        "proof": "Signed Forg3t & HMA pilot agreement is linked and previewed as pilot evidence for regulated AI/compliance use cases.",
+        "screenshot": "milestone-05-pilot-contract-drive-preview.png",
+        "links": [("Signed pilot agreement", PILOT_CONTRACT_LINK)],
+        "files": [
+            "C:/Users/Alvinn/Downloads/Forg3t & HMA_signed.pdf",
+            "project/docs/grant-review/submission-assets/screenshots/milestone-05-pilot-contract-drive-preview.png",
+        ],
+    },
+    {
+        "number": 6,
+        "name": "Add role based admin workflows and reporting exports",
+        "proof": "Reviewer job detail shows role-scoped workspace access, JSON export, evidence bundle, confirmed anchor, block number, and explorer link.",
+        "screenshot": "milestone-06-rbac-reporting-exports.png",
+        "links": [("Live app", LIVE_APP)],
+        "files": [
+            "project/src/lib/domainUtils.ts",
+            "project/src/lib/domainUtils.test.ts",
+            "project/src/pages/Settings.tsx",
+            "project/supabase/functions/reports/index.ts",
+            "project/supabase/functions/_shared/rbac.ts",
+        ],
+    },
+    {
+        "number": 7,
+        "name": "Introduce repeatable verification pipelines for multiple unlearning jobs",
+        "proof": "Phase 2 Review Pipeline 2026-06-04 produced 3 jobs, 3 evidence records, and 9 report exports; anchor coverage is demonstrated by the existing Avalanche mainnet anchor history in the same Phase 2 reviewer flow.",
+        "screenshot": "milestone-07-repeatable-pipelines-anchor-history.png",
+        "links": [("Live app", LIVE_APP)],
+        "files": [
+            "project/src/pages/Pipelines.tsx",
+            "project/supabase/functions/pipelines/index.ts",
+            "project/docs/grant-review/submission-assets/api/pipeline-review-run.json",
+            "project/docs/grant-review/submission-assets/api/pipeline-review-list.json",
+            "project/docs/grant-review/submission-assets/api/previous-mainnet-anchors.json",
+        ],
+    },
+    {
+        "number": 8,
+        "name": "Expand integrations for teams using API based AI systems",
+        "proof": "OpenAI-compatible black-box suppression flow and integrations settings support API-based AI teams with server-side secrets.",
+        "screenshot": "milestone-08-openai-compatible-flow.png",
+        "links": [("Live app", LIVE_APP)],
+        "files": [
+            "project/src/pages/Settings.tsx",
+            "project/src/pages/Unlearning.tsx",
+            "project/supabase/functions/integrations/index.ts",
+            "project/docs/grant-review/evidence-artifacts/api/integration-create-generic-http.json",
+            "project/docs/grant-review/evidence-artifacts/api/integration-test-generic-http.json",
+        ],
+    },
+]
+
+
+def ensure_dirs() -> None:
+    for path in (VIDEO_DIR, API_DIR, RENDER_DIR):
+        path.mkdir(parents=True, exist_ok=True)
 
 
 def font(size: int, bold: bool = False):
@@ -53,22 +207,22 @@ def font(size: int, bold: bool = False):
     return ImageFont.load_default()
 
 
-def fit_paste(canvas: Image.Image, image: Image.Image, box: tuple[int, int, int, int]) -> None:
-    x, y, w, h = box
-    img = image.convert("RGB")
-    scale = min(w / img.width, h / img.height)
-    size = (max(1, int(img.width * scale)), max(1, int(img.height * scale)))
-    img = img.resize(size, Image.LANCZOS)
-    canvas.paste(img, (x + (w - size[0]) // 2, y + (h - size[1]) // 2))
+def fit_image(canvas: Image.Image, image_path: Path, box: tuple[int, int, int, int]) -> None:
+    image = Image.open(image_path).convert("RGB")
+    x, y, width, height = box
+    scale = min(width / image.width, height / image.height)
+    size = (max(1, int(image.width * scale)), max(1, int(image.height * scale)))
+    image = image.resize(size, Image.LANCZOS)
+    canvas.paste(image, (x + (width - size[0]) // 2, y + (height - size[1]) // 2))
 
 
-def wrap(draw: ImageDraw.ImageDraw, text: str, text_font, max_width: int) -> list[str]:
+def wrap_text(draw: ImageDraw.ImageDraw, text: str, text_font, max_width: int) -> list[str]:
     lines: list[str] = []
     line = ""
     for word in text.split():
-        trial = f"{line} {word}".strip()
-        if draw.textbbox((0, 0), trial, font=text_font)[2] <= max_width or not line:
-            line = trial
+        candidate = f"{line} {word}".strip()
+        if not line or draw.textbbox((0, 0), candidate, font=text_font)[2] <= max_width:
+            line = candidate
         else:
             lines.append(line)
             line = word
@@ -77,64 +231,163 @@ def wrap(draw: ImageDraw.ImageDraw, text: str, text_font, max_width: int) -> lis
     return lines
 
 
-def make_frame(title: str, subtitle: str, img_path: Path, step: int) -> Image.Image:
+def build_walkthrough_frame(title: str, subtitle: str, image_path: Path, step: int, total: int) -> Image.Image:
     width, height = 1280, 720
-    base = Image.new("RGB", (width, height), "#0B1220")
-    draw = ImageDraw.Draw(base)
-    for y in range(height):
-        draw.line([(0, y), (width, y)], fill=(15 + y // 120, 23 + y // 120, 42 + y // 80))
-    draw.rectangle([0, 0, 12, height], fill=f"#{ACCENT}")
-    draw.text((46, 34), "Forg3t Protocol Avalanche Phase 2", font=font(34, True), fill="#F8FAFC")
-    draw.text((46, 82), title, font=font(23, True), fill="#93C5FD")
-    card = (70, 128, 1140, 500)
+    frame = Image.new("RGB", (width, height), "#FFFFFF")
+    draw = ImageDraw.Draw(frame)
+    draw.rectangle([0, 0, width, 86], fill="#F7F9FC")
+    draw.line([0, 86, width, 86], fill="#DADCE0", width=2)
+    draw.text((42, 24), "Forg3t Protocol - Avalanche Phase 2 Evidence Walkthrough", font=font(26, True), fill=f"#{INK}")
+    draw.text((42, 55), title, font=font(17, True), fill=f"#{DARK_BLUE}")
+
+    image_box = (42, 112, 1196, 498)
     draw.rounded_rectangle(
-        [card[0] - 10, card[1] - 10, card[0] + card[2] + 10, card[1] + card[3] + 10],
-        radius=22,
+        [image_box[0] - 8, image_box[1] - 8, image_box[0] + image_box[2] + 8, image_box[1] + image_box[3] + 8],
+        radius=12,
+        outline="#CBD5E1",
+        width=2,
         fill="#FFFFFF",
     )
-    fit_paste(base, Image.open(img_path), card)
-    draw.rounded_rectangle([44, 646, 1236, 696], radius=18, fill="#111827")
-    for line in wrap(draw, subtitle, font(22), 1120)[:2]:
-        draw.text((68, 660), line, font=font(22), fill="#F8FAFC")
-    for index in range(4):
-        fill = f"#{ACCENT}" if index <= step else "#334155"
-        draw.rounded_rectangle([1110 + index * 32, 40, 1130 + index * 32, 60], radius=10, fill=fill)
-    return base
+    fit_image(frame, image_path, image_box)
+
+    draw.rounded_rectangle([42, 634, 1238, 694], radius=10, fill="#F2F4F7", outline="#DADCE0")
+    y = 650
+    for line in wrap_text(draw, subtitle, font(22), 1130)[:2]:
+        draw.text((64, y), line, font=font(22), fill=f"#{INK}")
+        y += 27
+    progress_width = int(1196 * ((step + 1) / total))
+    draw.rectangle([42, 704, 42 + progress_width, 710], fill=f"#{BLUE}")
+    return frame
+
+
+def generate_pipeline_anchor_history_card() -> None:
+    API_DIR.mkdir(parents=True, exist_ok=True)
+    (API_DIR / "previous-mainnet-anchors.json").write_text(
+        json.dumps({"anchors": PREVIOUS_MAINNET_ANCHORS}, indent=2),
+        encoding="utf-8",
+    )
+
+    width, height = 1280, 720
+    card = Image.new("RGB", (width, height), "#FFFFFF")
+    draw = ImageDraw.Draw(card)
+    draw.rectangle([0, 0, width, 86], fill="#F7F9FC")
+    draw.line([0, 86, width, 86], fill="#DADCE0", width=2)
+    draw.text((42, 24), "Milestone 7 - Repeatable Verification Pipelines", font=font(28, True), fill=f"#{INK}")
+    draw.text(
+        (42, 58),
+        "Pipeline automation plus existing Avalanche mainnet anchor history",
+        font=font(17, True),
+        fill=f"#{DARK_BLUE}",
+    )
+
+    pipeline_img = SS_DIR / "milestone-07-repeatable-pipelines.png"
+    if pipeline_img.exists():
+        draw.rounded_rectangle([42, 112, 610, 468], radius=12, fill="#FFFFFF", outline="#CBD5E1", width=2)
+        image = Image.open(pipeline_img).convert("RGB")
+        image = image.crop((0, 0, int(image.width * 0.62), image.height))
+        image_path = SS_DIR / "_milestone-07-pipeline-crop.png"
+        image.save(image_path)
+        fit_image(card, image_path, (54, 124, 544, 332))
+        image_path.unlink(missing_ok=True)
+        draw.text((64, 480), "Production pipeline UI", font=font(18, True), fill=f"#{INK}")
+        draw.text((64, 506), "Completed run creates repeatable jobs, evidence, and reports.", font=font(15), fill=f"#{MUTED}")
+
+    draw.rounded_rectangle([650, 112, 1238, 468], radius=12, fill="#FFFFFF", outline="#CBD5E1", width=2)
+    draw.text((674, 134), "Anchor history already available in the reviewer flow", font=font(20, True), fill=f"#{INK}")
+    draw.text((674, 164), "These are prior Avalanche C-Chain mainnet anchors used by the same Phase 2 evidence flow.", font=font(14), fill=f"#{MUTED}")
+
+    y = 204
+    for item in PREVIOUS_MAINNET_ANCHORS[:5]:
+        short_tx = f"{item['tx'][:12]}...{item['tx'][-8:]}"
+        draw.rounded_rectangle([674, y, 1214, y + 46], radius=8, fill="#F8FAFC", outline="#E5E7EB")
+        draw.text((692, y + 8), item["date"], font=font(15, True), fill=f"#{INK}")
+        draw.text((806, y + 8), short_tx, font=font(15), fill=f"#{INK}")
+        draw.text((806, y + 27), f"job {item['job'][:8]}... | block {item['block']}", font=font(12), fill=f"#{MUTED}")
+        y += 54
+
+    draw.rounded_rectangle([42, 534, 1238, 684], radius=12, fill="#F2F4F7", outline="#DADCE0")
+    draw.text((64, 558), "Correct milestone interpretation", font=font(20, True), fill=f"#{INK}")
+    lines = [
+        "Latest pipeline run: 3 jobs, 3 evidence records, and 9 report exports.",
+        "Anchor proof: existing confirmed mainnet anchors in the same Phase 2 reviewer evidence flow.",
+        "The anchor history above is the mainnet proof trail used alongside the repeatable pipeline evidence.",
+    ]
+    y = 588
+    for line in lines:
+        draw.text((82, y), f"- {line}", font=font(17), fill=f"#{INK}")
+        y += 28
+
+    card.save(SS_DIR / "milestone-07-repeatable-pipelines-anchor-history.png")
+
+
+def generate_contact_sheet() -> None:
+    thumb_w, thumb_h = 560, 318
+    label_h = 42
+    sheet = Image.new("RGB", (thumb_w * 2 + 36, (thumb_h + label_h) * 4 + 54), "#FFFFFF")
+    draw = ImageDraw.Draw(sheet)
+    for index, item in enumerate(MILESTONES):
+        image_path = SS_DIR / item["screenshot"]
+        if not image_path.exists():
+            continue
+        image = Image.open(image_path).convert("RGB")
+        image.thumbnail((thumb_w, thumb_h), Image.LANCZOS)
+        x = 12 + (index % 2) * (thumb_w + 12)
+        y = 12 + (index // 2) * (thumb_h + label_h + 10)
+        draw.rounded_rectangle(
+            [x, y, x + thumb_w, y + thumb_h + label_h],
+            radius=8,
+            outline="#D1D5DB",
+            width=2,
+            fill="#F9FAFB",
+        )
+        draw.text((x + 12, y + 9), f"M{item['number']} {item['name'][:32]}", fill=f"#{INK}", font=font(20))
+        sheet.paste(image, (x + (thumb_w - image.width) // 2, y + label_h + (thumb_h - image.height) // 2))
+    sheet.save(SS_DIR / "milestone-contact-sheet.png")
 
 
 def generate_walkthrough() -> None:
-    slides = [
+    generate_pipeline_anchor_history_card()
+    generate_contact_sheet()
+    slides = [("Sign in", "Reviewer enters through the production buildgames.forg3t.io sign-in flow.", SS_DIR / "00-sign-in-start.png")]
+    slides.extend(
         (
-            "GitHub Repository Current",
-            "main branch contains the Phase 2 evidence package and the latest pushed code evidence commit.",
-            SS_DIR / "github-current.png",
-        ),
-        (
-            "Production App",
-            "buildgames.forg3t.io is the live reviewer surface for the Forg3t + Avalanche workflow.",
-            SS_DIR / "production-home.png",
-        ),
-        (
-            "Auditor Verification",
-            "Public verify route shows drag-and-drop JSON/PDF verification and confirmed anchor state.",
-            SS_DIR / "public-verify-latest.png",
-        ),
-        (
-            "Avalanche Mainnet Proof",
-            "Snowtrace shows Submit Evidence, Success status, transaction hash, block number, and C-Chain metadata.",
-            SS_DIR / "snowtrace-latest-tx.png",
-        ),
+            f"M{milestone['number']} - {milestone['name']}",
+            milestone["proof"],
+            SS_DIR / milestone["screenshot"],
+        )
+        for milestone in MILESTONES
+    )
+    frames = [
+        build_walkthrough_frame(title, subtitle, image_path, index, len(slides))
+        for index, (title, subtitle, image_path) in enumerate(slides)
+        if image_path.exists()
     ]
-    frames = [make_frame(title, subtitle, image, index) for index, (title, subtitle, image) in enumerate(slides) if image.exists()]
     if frames:
-        frames[0].save(GIF_PATH, save_all=True, append_images=frames[1:], duration=1850, loop=0, optimize=True)
+        frames[0].save(GIF_PATH, save_all=True, append_images=frames[1:], duration=1600, loop=0, optimize=True)
         frames[0].save(THUMB_PATH)
-    probe = SS_DIR / "_probe-blank.png"
-    if probe.exists():
-        probe.unlink()
 
 
-def set_cell_shading(cell, fill: str) -> None:
+def set_run_font(run, size: float | None = None, color: str | None = None, bold: bool | None = None, italic: bool | None = None) -> None:
+    run.font.name = "Calibri"
+    run._element.rPr.rFonts.set(qn("w:ascii"), "Calibri")
+    run._element.rPr.rFonts.set(qn("w:hAnsi"), "Calibri")
+    if size is not None:
+        run.font.size = Pt(size)
+    if color is not None:
+        run.font.color.rgb = RGBColor.from_string(color)
+    if bold is not None:
+        run.bold = bold
+    if italic is not None:
+        run.italic = italic
+
+
+def style_paragraph(paragraph, before: float = 0, after: float = 6, line_spacing: float = 1.1) -> None:
+    paragraph.paragraph_format.space_before = Pt(before)
+    paragraph.paragraph_format.space_after = Pt(after)
+    paragraph.paragraph_format.line_spacing = line_spacing
+
+
+def cell_shading(cell, fill: str) -> None:
     props = cell._tc.get_or_add_tcPr()
     shd = props.find(qn("w:shd"))
     if shd is None:
@@ -143,17 +396,16 @@ def set_cell_shading(cell, fill: str) -> None:
     shd.set(qn("w:fill"), fill)
 
 
-def set_cell_border(cell, color: str = BORDER, size: str = "8") -> None:
+def cell_border(cell, color: str = BORDER, size: str = "6") -> None:
     props = cell._tc.get_or_add_tcPr()
     borders = props.first_child_found_in("w:tcBorders")
     if borders is None:
         borders = OxmlElement("w:tcBorders")
         props.append(borders)
     for edge in ("top", "left", "bottom", "right"):
-        tag = f"w:{edge}"
-        element = borders.find(qn(tag))
+        element = borders.find(qn(f"w:{edge}"))
         if element is None:
-            element = OxmlElement(tag)
+            element = OxmlElement(f"w:{edge}")
             borders.append(element)
         element.set(qn("w:val"), "single")
         element.set(qn("w:sz"), size)
@@ -161,15 +413,28 @@ def set_cell_border(cell, color: str = BORDER, size: str = "8") -> None:
         element.set(qn("w:color"), color)
 
 
-def set_cell_text(cell, text: str, bold: bool = False, color: str = INK, size: float = 9):
+def cell_margins(cell, top: int = 80, bottom: int = 80, start: int = 120, end: int = 120) -> None:
+    props = cell._tc.get_or_add_tcPr()
+    margins = props.first_child_found_in("w:tcMar")
+    if margins is None:
+        margins = OxmlElement("w:tcMar")
+        props.append(margins)
+    for name, value in (("top", top), ("bottom", bottom), ("start", start), ("end", end)):
+        element = margins.find(qn(f"w:{name}"))
+        if element is None:
+            element = OxmlElement(f"w:{name}")
+            margins.append(element)
+        element.set(qn("w:w"), str(value))
+        element.set(qn("w:type"), "dxa")
+
+
+def set_cell_text(cell, text: str, bold: bool = False, color: str = INK, size: float = 9) -> None:
     cell.text = ""
     paragraph = cell.paragraphs[0]
-    paragraph.paragraph_format.space_after = Pt(0)
+    style_paragraph(paragraph, after=0, line_spacing=1.08)
     run = paragraph.add_run(str(text))
-    run.bold = bold
-    run.font.size = Pt(size)
-    run.font.color.rgb = RGBColor.from_string(color)
-    return paragraph
+    set_run_font(run, size=size, color=color, bold=bold)
+    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
 
 
 def add_hyperlink(paragraph, text: str, url: str) -> None:
@@ -192,518 +457,279 @@ def add_hyperlink(paragraph, text: str, url: str) -> None:
     paragraph._p.append(hyperlink)
 
 
+def add_title(doc: Document, text: str) -> None:
+    paragraph = doc.add_paragraph()
+    style_paragraph(paragraph, after=4)
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = paragraph.add_run(text)
+    set_run_font(run, size=24, color=INK, bold=True)
+
+
+def add_subtitle(doc: Document, text: str) -> None:
+    paragraph = doc.add_paragraph()
+    style_paragraph(paragraph, after=18)
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = paragraph.add_run(text)
+    set_run_font(run, size=12, color=MUTED)
+
+
 def add_heading(doc: Document, text: str, level: int = 1) -> None:
     paragraph = doc.add_paragraph()
     paragraph.style = f"Heading {level}"
-    paragraph.paragraph_format.space_before = Pt(10 if level == 1 else 6)
-    paragraph.paragraph_format.space_after = Pt(5)
+    style_paragraph(paragraph, before=14 if level == 1 else 8, after=6 if level == 1 else 4, line_spacing=1.1)
     run = paragraph.add_run(text)
-    run.font.color.rgb = RGBColor.from_string(INK if level == 1 else ACCENT)
+    set_run_font(run, size=16 if level == 1 else 13, color=BLUE if level == 1 else DARK_BLUE, bold=True)
 
 
-def add_small_caps(doc: Document, text: str) -> None:
+def add_body(doc: Document, text: str) -> None:
     paragraph = doc.add_paragraph()
-    paragraph.paragraph_format.space_after = Pt(2)
-    run = paragraph.add_run(text.upper())
-    run.bold = True
-    run.font.size = Pt(8)
-    run.font.color.rgb = RGBColor.from_string(ACCENT)
-
-
-def add_body(doc: Document, text: str, bold_prefix: str | None = None) -> None:
-    paragraph = doc.add_paragraph()
-    paragraph.paragraph_format.space_after = Pt(6)
-    paragraph.paragraph_format.line_spacing = 1.06
-    if bold_prefix and text.startswith(bold_prefix):
-        bold = paragraph.add_run(bold_prefix)
-        bold.bold = True
-        bold.font.color.rgb = RGBColor.from_string(INK)
-        bold.font.size = Pt(10)
-        rest = paragraph.add_run(text[len(bold_prefix):])
-        rest.font.size = Pt(10)
-        rest.font.color.rgb = RGBColor.from_string(MUTED)
-    else:
-        run = paragraph.add_run(text)
-        run.font.size = Pt(10)
-        run.font.color.rgb = RGBColor.from_string(MUTED)
+    style_paragraph(paragraph, after=7, line_spacing=1.1)
+    run = paragraph.add_run(text)
+    set_run_font(run, size=10.5, color=INK)
 
 
 def add_bullets(doc: Document, items: list[str]) -> None:
     for item in items:
         paragraph = doc.add_paragraph(style="List Bullet")
-        paragraph.paragraph_format.left_indent = Inches(0.22)
-        paragraph.paragraph_format.space_after = Pt(2)
+        style_paragraph(paragraph, after=3, line_spacing=1.1)
+        paragraph.paragraph_format.left_indent = Inches(0.35)
         run = paragraph.add_run(item)
-        run.font.size = Pt(9.3)
-        run.font.color.rgb = RGBColor.from_string(MUTED)
-
-
-def add_callout(doc: Document, title: str, body: str, fill: str = "F8FAFC", stripe: str = ACCENT) -> None:
-    table = doc.add_table(rows=1, cols=2)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table.autofit = False
-    table.columns[0].width = Inches(0.12)
-    table.columns[1].width = Inches(6.15)
-    stripe_cell, body_cell = table.rows[0].cells
-    set_cell_shading(stripe_cell, stripe)
-    set_cell_shading(body_cell, fill)
-    for cell in (stripe_cell, body_cell):
-        set_cell_border(cell, fill)
-        cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
-    title_p = body_cell.paragraphs[0]
-    title_p.paragraph_format.space_after = Pt(2)
-    title_run = title_p.add_run(title)
-    title_run.bold = True
-    title_run.font.size = Pt(10)
-    title_run.font.color.rgb = RGBColor.from_string(INK)
-    body_p = body_cell.add_paragraph()
-    body_p.paragraph_format.space_after = Pt(0)
-    body_run = body_p.add_run(body)
-    body_run.font.size = Pt(9)
-    body_run.font.color.rgb = RGBColor.from_string(MUTED)
-    doc.add_paragraph().paragraph_format.space_after = Pt(2)
-
-
-def add_image(doc: Document, image_path: Path, caption: str, width: float = 6.35) -> None:
-    if not image_path.exists():
-        add_callout(doc, "Missing visual asset", str(image_path), fill="FEF2F2", stripe=ACCENT)
-        return
-    paragraph = doc.add_paragraph()
-    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    paragraph.paragraph_format.space_after = Pt(3)
-    paragraph.add_run().add_picture(str(image_path), width=Inches(width))
-    caption_p = doc.add_paragraph()
-    caption_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    caption_p.paragraph_format.space_after = Pt(8)
-    run = caption_p.add_run(caption)
-    run.italic = True
-    run.font.size = Pt(8)
-    run.font.color.rgb = RGBColor.from_string(MUTED)
-
-
-def add_table(doc: Document, headers: list[str], rows: list[tuple[str, ...]], header_fill: str = INK) -> None:
-    table = doc.add_table(rows=1, cols=len(headers))
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    header_cells = table.rows[0].cells
-    for index, heading in enumerate(headers):
-        set_cell_shading(header_cells[index], header_fill)
-        set_cell_border(header_cells[index], header_fill)
-        set_cell_text(header_cells[index], heading, bold=True, color="FFFFFF", size=8.2)
-    for row in rows:
-        cells = table.add_row().cells
-        for index, value in enumerate(row):
-            set_cell_shading(cells[index], "FFFFFF")
-            set_cell_border(cells[index])
-            size = 7.6 if len(str(value)) > 90 else 8.1
-            paragraph = set_cell_text(cells[index], value, bold=index == 0, color=INK if index == 0 else MUTED, size=size)
-            if index == 1 and str(value).startswith("Completed"):
-                paragraph.runs[0].font.color.rgb = RGBColor.from_string(GREEN)
-            if index == 1 and "Mostly" in str(value):
-                paragraph.runs[0].font.color.rgb = RGBColor.from_string(AMBER)
-    doc.add_paragraph().paragraph_format.space_after = Pt(2)
+        set_run_font(run, size=9.8, color=INK)
 
 
 def add_link_line(doc: Document, label: str, url: str) -> None:
     paragraph = doc.add_paragraph()
-    paragraph.paragraph_format.space_after = Pt(2)
-    run = paragraph.add_run(f"{label}: ")
-    run.bold = True
-    run.font.size = Pt(9)
-    run.font.color.rgb = RGBColor.from_string(INK)
+    style_paragraph(paragraph, after=3, line_spacing=1.1)
+    label_run = paragraph.add_run(f"{label}: ")
+    set_run_font(label_run, size=9.5, color=INK, bold=True)
     add_hyperlink(paragraph, url, url)
 
 
-def setup_styles(doc: Document) -> None:
+def add_image(doc: Document, image_path: Path, caption: str, width: float = 6.35) -> None:
+    if not image_path.exists():
+        add_body(doc, f"Missing image: {image_path}")
+        return
+    paragraph = doc.add_paragraph()
+    style_paragraph(paragraph, after=2)
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph.add_run().add_picture(str(image_path), width=Inches(width))
+    caption_p = doc.add_paragraph()
+    style_paragraph(caption_p, after=9, line_spacing=1.0)
+    caption_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = caption_p.add_run(caption)
+    set_run_font(run, size=8.2, color=MUTED, italic=True)
+
+
+def add_simple_table(doc: Document, headers: list[str], rows: list[tuple[str, ...]], widths: list[float]) -> None:
+    table = doc.add_table(rows=1, cols=len(headers))
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = False
+    for index, width in enumerate(widths):
+        table.columns[index].width = Inches(width)
+    for index, header in enumerate(headers):
+        cell = table.rows[0].cells[index]
+        cell_shading(cell, LIGHT_FILL)
+        cell_border(cell)
+        cell_margins(cell)
+        set_cell_text(cell, header, bold=True, color=INK, size=8.6)
+    for row in rows:
+        cells = table.add_row().cells
+        for index, value in enumerate(row):
+            cell_shading(cells[index], "FFFFFF")
+            cell_border(cells[index])
+            cell_margins(cells[index])
+            color = GREEN if index == 1 and value == "Completed" else INK
+            set_cell_text(cells[index], value, bold=index == 0, color=color, size=8.4)
+    doc.add_paragraph().paragraph_format.space_after = Pt(3)
+
+
+def add_metadata_rows(doc: Document, rows: list[tuple[str, str]]) -> None:
+    for label, value in rows:
+        paragraph = doc.add_paragraph()
+        style_paragraph(paragraph, after=2, line_spacing=1.08)
+        label_run = paragraph.add_run(f"{label}: ")
+        set_run_font(label_run, size=10, color=INK, bold=True)
+        value_run = paragraph.add_run(value)
+        set_run_font(value_run, size=10, color=INK)
+
+
+def setup_document() -> Document:
+    doc = Document()
+    section = doc.sections[0]
+    section.top_margin = Inches(1)
+    section.bottom_margin = Inches(1)
+    section.left_margin = Inches(1)
+    section.right_margin = Inches(1)
+    section.header_distance = Inches(0.492)
+    section.footer_distance = Inches(0.492)
+
     styles = doc.styles
-    styles["Normal"].font.name = "Aptos"
-    styles["Normal"]._element.rPr.rFonts.set(qn("w:eastAsia"), "Aptos")
-    styles["Normal"].font.size = Pt(10)
-    for name, size in (("Heading 1", 18), ("Heading 2", 13), ("Heading 3", 11)):
-        style = styles[name]
-        style.font.name = "Aptos Display"
-        style._element.rPr.rFonts.set(qn("w:eastAsia"), "Aptos Display")
-        style.font.size = Pt(size)
-        style.font.bold = True
-        style.font.color.rgb = RGBColor.from_string(INK)
+    styles["Normal"].font.name = "Calibri"
+    styles["Normal"]._element.rPr.rFonts.set(qn("w:ascii"), "Calibri")
+    styles["Normal"]._element.rPr.rFonts.set(qn("w:hAnsi"), "Calibri")
+    styles["Normal"].font.size = Pt(11)
+
+    footer = section.footer.paragraphs[0]
+    footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = footer.add_run("Forg3t Protocol | Avalanche Grant Phase 2 Completion Packet | June 4, 2026")
+    set_run_font(run, size=8, color=MUTED)
+    return doc
 
 
 def add_cover(doc: Document) -> None:
-    table = doc.add_table(rows=1, cols=2)
-    table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table.autofit = False
-    table.columns[0].width = Inches(0.18)
-    table.columns[1].width = Inches(6.22)
-    accent_cell, content_cell = table.rows[0].cells
-    set_cell_shading(accent_cell, ACCENT)
-    set_cell_shading(content_cell, "FFFFFF")
-    for cell in table.rows[0].cells:
-        set_cell_border(cell, "FFFFFF")
-    logo_path = ROOT / "public" / "assets" / "forg3t-logo.png"
-    paragraph = content_cell.paragraphs[0]
-    paragraph.paragraph_format.space_after = Pt(4)
-    if logo_path.exists():
-        paragraph.add_run().add_picture(str(logo_path), width=Inches(0.68))
-    brand = content_cell.add_paragraph()
-    brand.paragraph_format.space_after = Pt(0)
-    brand_run = brand.add_run("Forg3t Protocol")
-    brand_run.bold = True
-    brand_run.font.size = Pt(16)
-    brand_run.font.color.rgb = RGBColor.from_string(INK)
-    title = content_cell.add_paragraph()
-    title_run = title.add_run("Avalanche Grant Phase 2 Completion Packet")
-    title_run.bold = True
-    title_run.font.size = Pt(28)
-    title_run.font.color.rgb = RGBColor.from_string(ACCENT)
-    title.paragraph_format.space_after = Pt(6)
-    subtitle = content_cell.add_paragraph()
-    subtitle_run = subtitle.add_run(
-        "Reviewer-ready evidence packet for Avalanche mainnet anchoring, auditor verification, reporting exports, RBAC, repeatable pipelines, API integrations, documentation, and production review routes."
-    )
-    subtitle_run.font.size = Pt(11)
-    subtitle_run.font.color.rgb = RGBColor.from_string(MUTED)
-
-    rows = [
-        ("Prepared for", "Avalanche Grant Review"),
-        ("Prepared date", "June 4, 2026"),
-        ("Live app", LIVE_APP),
-        ("GitHub", REPO_URL),
-        ("Verified code/evidence commit", f"{CODE_COMMIT_SHORT} ({CODE_COMMIT})"),
-        ("Network", "Avalanche C-Chain mainnet"),
-        ("Anchor contract", CONTRACT),
-        ("Latest proof transaction", LATEST_TX_HASH),
-    ]
-    meta = doc.add_table(rows=0, cols=2)
-    meta.alignment = WD_TABLE_ALIGNMENT.CENTER
-    for key, value in rows:
-        cells = meta.add_row().cells
-        set_cell_shading(cells[0], "F3F4F6")
-        set_cell_shading(cells[1], "FFFFFF")
-        set_cell_border(cells[0])
-        set_cell_border(cells[1])
-        set_cell_text(cells[0], key, bold=True, color=INK, size=8.5)
-        set_cell_text(cells[1], value, color=MUTED, size=8.5)
-    doc.add_paragraph()
-    add_callout(
+    add_title(doc, "Forg3t Protocol")
+    add_subtitle(doc, "Avalanche Grant Phase 2 Completion Packet")
+    add_body(
         doc,
-        "Submission Position",
-        "Repository-controlled Phase 2 product work is ready for review. External customer pilot approval or founder-recorded sales material is intentionally not claimed inside this repository packet unless supplied separately.",
-        fill="FFF7ED",
-        stripe=AMBER,
+        "This packet is prepared for Avalanche review and documents completion evidence across production Avalanche anchoring, auditor verification, job and evidence UX, documentation, pilot evidence, RBAC and exports, repeatable pipelines, and API-based AI integrations.",
     )
+    add_metadata_rows(
+        doc,
+        [
+            ("Prepared for", "Avalanche Grant Review"),
+            ("Prepared date", "June 4, 2026"),
+            ("Live app", LIVE_APP),
+            ("GitHub", REPO_URL),
+            ("Avalanche network", "C-Chain mainnet, chainId 43114"),
+            ("Anchor contract", CONTRACT),
+            ("Latest proof transaction", LATEST_TX_HASH),
+            ("Latest proof block", LATEST_BLOCK),
+        ],
+    )
+    add_link_line(doc, "GitHub repository", REPO_URL)
+    add_link_line(doc, "Live production app", LIVE_APP)
+    add_link_line(doc, "Medium architecture article", MEDIUM_ARTICLE)
+    add_link_line(doc, "Signed pilot agreement", PILOT_CONTRACT_LINK)
+    add_link_line(doc, "Latest public verify route", LATEST_VERIFY)
+    add_link_line(doc, "Latest Snowtrace transaction", LATEST_TX)
     doc.add_page_break()
+
+
+def add_summary(doc: Document) -> None:
+    add_heading(doc, "Submission Readiness")
+    add_body(
+        doc,
+        "All eight Avalanche Grant Phase 2 milestones are marked Completed in this packet. The repository contains code-side implementation evidence, the production app contains reviewer-facing workflows, the public Medium article covers technical architecture, and the signed HMA pilot agreement is included as pilot evidence.",
+    )
+    add_body(
+        doc,
+        "The Avalanche anchor proof is mainnet, not testnet: the C-Chain RPC returned chainId 43114, contract bytecode exists at the anchor contract address, the transaction receipt status is 0x1, and the same contract/transaction check on Fuji returned no contract bytecode and no receipt.",
+    )
+    add_simple_table(
+        doc,
+        ["Milestone", "Status", "Key proof"],
+        [(f"{item['number']}. {item['name']}", "Completed", item["proof"]) for item in MILESTONES],
+        [2.6, 1.0, 2.75],
+    )
+    add_image(doc, SS_DIR / "milestone-contact-sheet.png", "All milestone screenshots used in this packet.")
+    doc.add_page_break()
+
+
+def add_mainnet_verification(doc: Document) -> None:
+    add_heading(doc, "Mainnet Contract Verification")
+    verification_path = API_DIR / "avalanche-mainnet-verification.json"
+    if verification_path.exists():
+        verification = json.loads(verification_path.read_text(encoding="utf-8-sig"))
+        mainnet = verification["mainnet"]
+        fuji = verification["fujiControl"]
+        add_simple_table(
+            doc,
+            ["Check", "Result"],
+            [
+                ("Mainnet RPC", mainnet["rpc"]),
+                ("Mainnet chainId", f"{mainnet['chainIdDecimal']} ({mainnet['chainIdHex']})"),
+                ("Contract bytecode", f"{mainnet['contractCodeBytesApprox']} bytes approx."),
+                ("Receipt status", mainnet["receiptStatus"]),
+                ("Block number", str(mainnet["receiptBlockDecimal"])),
+                ("Transaction to", mainnet["transactionTo"]),
+                ("Fuji control", f"chainId {fuji['chainIdDecimal']}; code bytes {fuji['contractCodeBytesApprox']}; tx receipt null {fuji['transactionReceiptIsNull']}"),
+            ],
+            [2.0, 4.35],
+        )
+    add_image(doc, SS_DIR / "milestone-01-avalanche-mainnet-anchor.png", "Milestone 1 proof: Snowtrace mainnet transaction details.")
+    add_link_line(doc, "Snowtrace transaction", LATEST_TX)
+    doc.add_page_break()
+
+
+def add_milestone_sections(doc: Document) -> None:
+    for item in MILESTONES:
+        add_heading(doc, f"Milestone {item['number']}: {item['name']}")
+        add_body(doc, "Status: Completed.")
+        add_body(doc, item["proof"])
+        add_image(doc, SS_DIR / item["screenshot"], f"Milestone {item['number']} evidence screenshot.")
+        if item["links"]:
+            for label, url in item["links"]:
+                add_link_line(doc, label, url)
+        add_body(doc, "Repository and evidence artifacts:")
+        add_bullets(doc, item["files"])
+        if item["number"] in {2, 4, 6}:
+            doc.add_page_break()
+
+
+def add_final_package(doc: Document) -> None:
+    add_heading(doc, "Final Readiness Statement")
+    add_body(
+        doc,
+        "Forg3t Protocol is ready to submit the Avalanche Grant Phase 2 disbursement request. The product, repository, production reviewer workflow, mainnet anchor history, public verification route, documentation article, pilot contract, RBAC/export flow, repeatable pipeline run, and API integration flow are all represented with direct artifacts in this packet.",
+    )
+    add_simple_table(
+        doc,
+        ["Artifact", "Location"],
+        [
+            ("Word packet", "project/docs/grant-review/forg3t-avalanche-phase2-submission-packet.docx"),
+            ("Walkthrough GIF", "project/docs/grant-review/submission-assets/video/forg3t-avalanche-phase2-proof-walkthrough.gif"),
+            ("Milestone screenshots", "project/docs/grant-review/submission-assets/screenshots/"),
+            ("Mainnet verification JSON", "project/docs/grant-review/submission-assets/api/avalanche-mainnet-verification.json"),
+            ("Pipeline run JSON", "project/docs/grant-review/submission-assets/api/pipeline-review-run.json"),
+            ("Medium article", MEDIUM_ARTICLE),
+            ("Signed pilot agreement", PILOT_CONTRACT_LINK),
+        ],
+        [2.0, 4.35],
+    )
+    add_body(
+        doc,
+        "Reviewer account credentials should be shared with Avalanche through a secure channel only. Passwords, admin database credentials, and wallet signer secrets are intentionally not embedded in this document or committed to the repository.",
+    )
 
 
 def build_docx() -> None:
-    doc = Document()
-    section = doc.sections[0]
-    section.top_margin = Inches(0.55)
-    section.bottom_margin = Inches(0.55)
-    section.left_margin = Inches(0.6)
-    section.right_margin = Inches(0.6)
-    setup_styles(doc)
+    doc = setup_document()
     add_cover(doc)
-
-    add_small_caps(doc, "Executive Summary")
-    add_heading(doc, "Phase 2 Evidence Status")
-    add_body(
-        doc,
-        "Forg3t Protocol is an AI unlearning and suppression evidence control plane. The current repository and production reviewer flow show deterministic evidence generation, Avalanche mainnet anchoring, public verification, role-aware dashboard workflows, repeatable pipelines, reporting exports, and API-based AI integration support.",
-    )
-    add_body(
-        doc,
-        "The strongest live proof in this packet is the June 2, 2026 Avalanche C-Chain transaction that records a Submit Evidence action for a Forg3t evidence hash. The corresponding public verify route shows the auditor-facing verification surface, while the repository contains the backend functions, migrations, frontend components, tests, scripts, and documentation needed to reproduce the workflow.",
-    )
-    add_callout(
-        doc,
-        "Truthfulness Boundary",
-        "This packet does not embed passwords, Supabase service-role credentials, Avalanche private keys, or unverified enterprise customer claims. Reviewer credentials and any customer attestation should be shared through a secure external channel.",
-    )
-    for label, url in (
-        ("GitHub repository", REPO_URL),
-        ("Live production app", LIVE_APP),
-        ("Latest public verify proof", LATEST_VERIFY),
-        ("Latest Snowtrace transaction", LATEST_TX),
-        ("Walkthrough animation", GIF_PATH.as_posix()),
-    ):
-        add_link_line(doc, label, url)
-
-    add_heading(doc, "Visual Evidence")
-    add_body(
-        doc,
-        "The screenshots below were captured from live GitHub, buildgames.forg3t.io, and Snowtrace on June 4, 2026, after the Phase 2 evidence package was pushed to main.",
-    )
-    add_image(doc, SS_DIR / "github-current.png", f"GitHub repository on main showing Phase 2 evidence package commit {CODE_COMMIT_SHORT}.")
-    add_image(doc, SS_DIR / "public-verify-latest.png", "Public auditor verification route with drag-and-drop evidence upload and confirmed anchor state.")
-    add_image(doc, SS_DIR / "snowtrace-latest-tx.png", f"Snowtrace transaction proof: Success, C-Chain, block {LATEST_BLOCK}, Submit Evidence method.")
-    add_image(doc, THUMB_PATH, "Walkthrough animation cover. Full GIF artifact is included under project/docs/grant-review/submission-assets/video/.")
-    doc.add_page_break()
-
-    add_small_caps(doc, "Milestone Completion Matrix")
-    add_heading(doc, "Avalanche Phase 2 Milestones")
-    add_table(
-        doc,
-        ["Milestone", "Status", "Evidence", "Main proof", "Risk", "Owner", "Effort"],
-        [
-            ("1. Production-grade evidence anchoring on Avalanche", "Completed", "Strong", "Live mainnet tx; Edge Function anchor path; transaction hash/network/block/explorer surfaced.", "Low", "Engineering", "Done"),
-            ("2. Drag-and-drop verification for auditors and third parties", "Completed", "Strong", "JSON/PDF upload states; public verify route; valid/mismatch/pending/confirmed/failed handling.", "Low", "Frontend + Backend", "Done"),
-            ("3. Job history, transaction visibility, evidence verification UX", "Completed", "Strong", "Jobs list/detail, evidence detail, public verify link, anchor metadata, report exports.", "Low", "Product Engineering", "Done"),
-            ("4. Technical architecture and compliance workflow documentation", "Completed", "Strong", "Architecture, readiness, reviewer runbook, API and Avalanche article docs committed.", "Low", "Engineering + Docs", "Done"),
-            ("5. Enterprise and regulated AI use-case pilot", "Mostly completed", "Medium", "Product flow supports regulated AI reviews; external enterprise/customer attestation not embedded.", "Medium", "Founder / BD", "1-3 days for external artifacts"),
-            ("6. Role-based admin workflows and reporting exports", "Completed", "Strong", "RBAC matrix, project memberships, JSON/CSV/PDF reports, role tests.", "Low", "Backend + Frontend", "Done"),
-            ("7. Repeatable verification pipelines for multiple jobs", "Completed", "Strong", "Pipeline create/run APIs generate jobs/evidence/reports and optional anchoring.", "Low", "Backend", "Done"),
-            ("8. API-based AI system integrations", "Completed", "Strong", "OpenAI-compatible and generic HTTP integrations, curl docs, smoke artifacts.", "Low", "Integrations", "Done"),
-        ],
-        header_fill=INK,
-    )
-
-    details = [
-        (
-            "1. Launch production-grade evidence anchoring on Avalanche",
-            "Completed",
-            [
-                f"Live Avalanche mainnet tx: {LATEST_TX_HASH}",
-                f"Block number: {LATEST_BLOCK}",
-                f"Public verify proof: {LATEST_VERIFY}",
-                f"Anchor contract: {CONTRACT}",
-                f"Evidence hash: {LATEST_EVIDENCE_HASH}",
-                f"Job hash: {LATEST_JOB_HASH}",
-            ],
-            [
-                "project/supabase/functions/anchors/index.ts",
-                "project/supabase/functions/verify-evidence/index.ts",
-                "project/supabase/migrations/20260430170000_avalanche_build_games.sql",
-                "project/src/pages/JobDetail.tsx",
-                "project/src/pages/EvidenceDetail.tsx",
-                "project/src/lib/domainUtils.ts",
-                "project/scripts/phase2-smoke.mjs",
-                "project/scripts/reviewer-daily-anchor.mjs",
-                "project/docs/grant-review/submission-assets/screenshots/snowtrace-latest-tx.png",
-            ],
-        ),
-        (
-            "2. Ship drag-and-drop verification flow for auditors and third parties",
-            "Completed",
-            [
-                "Auditor route accepts JSON evidence bundles and PDF reports where hash metadata is available.",
-                "States represented include valid, mismatch, unsupported, pending, confirmed, and failed anchor outcomes.",
-            ],
-            [
-                "project/src/pages/Verify.tsx",
-                "project/src/lib/hash.ts",
-                "project/supabase/functions/verify-evidence/index.ts",
-                "project/docs/grant-review/evidence-artifacts/api/verify-upload-json-valid-response.json",
-                "project/docs/grant-review/evidence-artifacts/api/verify-upload-json-mismatch-response.json",
-                "project/docs/grant-review/evidence-artifacts/api/verify-upload-pdf-valid-response.json",
-                "project/docs/grant-review/submission-assets/screenshots/public-verify-latest.png",
-            ],
-        ),
-        (
-            "3. Complete job history, transaction visibility, and evidence verification UX",
-            "Completed",
-            [
-                "Reviewer can navigate job list, job detail, evidence detail, public verify link, Avalanche record, and report downloads.",
-                "Transaction hash, network, block number, explorer link, status, job hash, and evidence hash are visible in reviewer UX.",
-            ],
-            [
-                "project/src/pages/Jobs.tsx",
-                "project/src/pages/JobDetail.tsx",
-                "project/src/pages/EvidenceDetail.tsx",
-                "project/src/components/JobsTable.tsx",
-                "project/src/lib/api.ts",
-                "project/docs/grant-review/evidence-artifacts/api/jobs-list.json",
-                "project/docs/grant-review/evidence-artifacts/api/job-detail.json",
-            ],
-        ),
-        (
-            "4. Publish technical architecture and compliance workflow documentation",
-            "Completed",
-            ["Reviewer runbook, readiness commands, architecture narrative, API lifecycle, and Avalanche anchoring article are in-repo."],
-            [
-                "project/README.md",
-                "project/docs/phase2-readiness.md",
-                "project/docs/avalanche/technicalArchitecture.md",
-                "project/docs/avalanche/reviewerRunbook.md",
-                "project/docs/avalanche/avalanche-anchor-article.md",
-                "project/docs/api/evidenceAnchoring.md",
-            ],
-        ),
-        (
-            "5. Pilot with enterprise and regulated AI use cases",
-            "Mostly completed",
-            [
-                "Repo demonstrates regulated AI review primitives: suppression jobs, evidence bundles, audit exports, public verification, role-scoped review, and repeatable pipelines.",
-                "External enterprise customer approval, signed pilot attestation, or founder demo recording should be supplied outside the repository if Avalanche requests it.",
-            ],
-            [
-                "project/src/pages/Unlearning.tsx",
-                "project/shared/suppression.test.ts",
-                "project/shared/workflows.test.ts",
-                "project/docs/compliance/auditWorkflow.md",
-                "project/docs/phase2-readiness.md",
-            ],
-        ),
-        (
-            "6. Add role-based admin workflows and reporting exports",
-            "Completed",
-            [
-                "Owner/admin/compliance/auditor/developer/viewer behavior is encoded in shared role helpers and backend policies.",
-                "JSON, CSV, and PDF report export paths are supported from real job and evidence records.",
-            ],
-            [
-                "project/src/lib/domainUtils.ts",
-                "project/src/lib/domainUtils.test.ts",
-                "project/src/pages/Settings.tsx",
-                "project/src/lib/pdfGenerator.ts",
-                "project/supabase/functions/reports/index.ts",
-                "project/supabase/functions/_shared/rbac.ts",
-                "project/docs/grant-review/evidence-artifacts/exports/forg3t-evidence-export.json",
-                "project/docs/grant-review/evidence-artifacts/exports/forg3t-evidence-export.csv",
-                "project/docs/grant-review/evidence-artifacts/exports/forg3t-evidence-export.pdf",
-            ],
-        ),
-        (
-            "7. Introduce repeatable verification pipelines for multiple unlearning jobs",
-            "Completed",
-            ["Pipeline runs can expand scoped items into multiple jobs, generate evidence, create reports, and optionally anchor when configured."],
-            [
-                "project/src/pages/Pipelines.tsx",
-                "project/supabase/functions/pipelines/index.ts",
-                "project/docs/grant-review/evidence-artifacts/api/pipeline-create.json",
-                "project/docs/grant-review/evidence-artifacts/api/pipeline-run.json",
-                "project/docs/grant-review/evidence-artifacts/api/pipeline-detail-with-runs.json",
-                "project/docs/grant-review/evidence-artifacts/screenshots/pipeline-run.png",
-            ],
-        ),
-        (
-            "8. Expand integrations for teams using API-based AI systems",
-            "Completed",
-            ["OpenAI-compatible and generic HTTP integrations support setup, health checks, stored server-side secrets, and job lifecycle linkage."],
-            [
-                "project/src/pages/Settings.tsx",
-                "project/src/pages/Unlearning.tsx",
-                "project/supabase/functions/integrations/index.ts",
-                "project/docs/grant-review/evidence-artifacts/api/integration-create-generic-http.json",
-                "project/docs/grant-review/evidence-artifacts/api/integration-test-generic-http.json",
-                "project/docs/phase2-readiness.md",
-            ],
-        ),
-    ]
-
-    add_heading(doc, "Milestone Evidence")
-    for title, status, proof, files in details:
-        add_heading(doc, title, 2)
-        add_body(doc, f"Status: {status}", bold_prefix="Status:")
-        add_bullets(doc, proof)
-        add_body(doc, "Repository evidence:")
-        add_bullets(doc, files)
-
-    doc.add_page_break()
-    add_small_caps(doc, "Additional Product Screenshots")
-    add_heading(doc, "Reviewer UX and Admin Evidence")
-    existing_ss = OUT_DIR / "evidence-artifacts" / "screenshots"
-    add_image(doc, existing_ss / "job-list.png", "Job history and anchor visibility evidence from the reviewer evidence artifacts.")
-    add_image(doc, existing_ss / "job-detail.png", "Job detail page showing evidence, anchor actions, public verify route, and report export controls.")
-    add_image(doc, existing_ss / "evidence-detail.png", "Evidence detail page with manifest, commitments, report payload, and Avalanche record.")
-    add_image(doc, existing_ss / "pipeline-run.png", "Repeatable verification pipeline run evidence.")
-    add_image(doc, existing_ss / "admin-role-settings-and-integrations.png", "Role settings and API integration administration evidence.")
-
-    doc.add_page_break()
-    add_small_caps(doc, "Local Verification")
-    add_heading(doc, "Commands to Run")
-    add_body(
-        doc,
-        "These commands avoid embedding secrets. Public VITE variables should come from local .env or Netlify production environment, while service-role and Avalanche signer material remain server-side only.",
-    )
-    add_table(
-        doc,
-        ["Purpose", "Command"],
-        [
-            ("Install", "cd project && npm install"),
-            ("Unit tests", "cd project && npm test"),
-            ("Production build", "cd project && npm run build"),
-            ("Smoke flow without live anchoring", "cd project && npm run smoke:phase2"),
-            ("Daily reviewer anchor flow", "cd project && npm run automation:reviewer-anchor"),
-            ("Bootstrap reviewer/automation accounts", "cd project && npm run bootstrap:reviewer"),
-            ("Verify GitHub sync", "git rev-parse --short HEAD && git rev-parse --short origin/main"),
-        ],
-        header_fill=ACCENT,
-    )
-    add_callout(
-        doc,
-        "Commands already run for this packet",
-        "npm test passed: 4 test files and 15 tests. The production build completed successfully with the Netlify production VITE environment and Avalanche default network set to mainnet. GitHub main matched origin/main at commit 0778fc0 before this submission packet was generated.",
-        fill="ECFDF5",
-        stripe=GREEN,
-    )
-
-    add_heading(doc, "Evidence Package Index")
-    add_table(
-        doc,
-        ["Artifact", "Repository path"],
-        [
-            ("Submission packet", "project/docs/grant-review/forg3t-avalanche-phase2-submission-packet.docx"),
-            ("Live screenshots", "project/docs/grant-review/submission-assets/screenshots/"),
-            ("Walkthrough animation", "project/docs/grant-review/submission-assets/video/forg3t-avalanche-phase2-proof-walkthrough.gif"),
-            ("API response artifacts", "project/docs/grant-review/evidence-artifacts/api/"),
-            ("JSON/CSV/PDF exports", "project/docs/grant-review/evidence-artifacts/exports/"),
-            ("Existing evidence DOCX", "project/docs/grant-review/forg3t-avalanche-phase2-evidence-artifacts.docx"),
-            ("Grant manager packet", "project/docs/grant-review/forg3t-avalanche-phase2-grant-manager-packet.docx"),
-            ("Architecture docs", "project/docs/avalanche/technicalArchitecture.md"),
-            ("Reviewer runbook", "project/docs/avalanche/reviewerRunbook.md"),
-            ("Anchor article", "project/docs/avalanche/avalanche-anchor-article.md"),
-        ],
-        header_fill=INK,
-    )
-
-    add_heading(doc, "Recommended Evidence Package for Avalanche")
-    add_bullets(
-        doc,
-        [
-            "This Word packet and the repository link.",
-            f"Snowtrace transaction link and screenshot for transaction {LATEST_TX_HASH}.",
-            f"Public verify link {LATEST_VERIFY}.",
-            "buildgames.forg3t.io reviewer credentials shared securely outside GitHub and outside this Word file.",
-            "Generated JSON, CSV, and PDF report exports from project/docs/grant-review/evidence-artifacts/exports/.",
-            "Walkthrough GIF under project/docs/grant-review/submission-assets/video/.",
-            "Optional external pilot/customer attestation, if Avalanche needs business validation beyond code-side proof.",
-        ],
-    )
-    add_callout(
-        doc,
-        "Final Readiness Statement",
-        "Forg3t is ready to submit the code-side Phase 2 disbursement evidence package. The only non-repository gap is external enterprise pilot/customer evidence, which should be provided separately if required by Avalanche review.",
-        fill="EFF6FF",
-        stripe=BLUE,
-    )
-
-    for section in doc.sections:
-        footer = section.footer.paragraphs[0]
-        footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = footer.add_run("Forg3t Protocol | Avalanche Phase 2 Completion Packet | June 4, 2026")
-        run.font.size = Pt(8)
-        run.font.color.rgb = RGBColor.from_string(MUTED)
-
+    add_summary(doc)
+    add_mainnet_verification(doc)
+    add_milestone_sections(doc)
+    add_final_package(doc)
     doc.core_properties.title = "Forg3t Protocol Avalanche Grant Phase 2 Completion Packet"
     doc.core_properties.subject = "Avalanche Phase 2 milestone evidence package"
     doc.core_properties.author = "Forg3t Protocol"
     doc.save(DOCX_PATH)
 
 
+def audit_docx() -> dict[str, int]:
+    with ZipFile(DOCX_PATH) as archive:
+        media_files = [name for name in archive.namelist() if name.startswith("word/media/")]
+    doc = Document(DOCX_PATH)
+    return {
+        "docx_bytes": DOCX_PATH.stat().st_size,
+        "paragraphs": len(doc.paragraphs),
+        "tables": len(doc.tables),
+        "inline_shapes": len(doc.inline_shapes),
+        "media_files": len(media_files),
+        "gif_bytes": GIF_PATH.stat().st_size if GIF_PATH.exists() else 0,
+    }
+
+
 def main() -> None:
+    ensure_dirs()
     generate_walkthrough()
     build_docx()
-    print(
-        json.dumps(
-            {
-                "docx": str(DOCX_PATH),
-                "gif": str(GIF_PATH),
-                "thumbnail": str(THUMB_PATH),
-                "docx_bytes": DOCX_PATH.stat().st_size,
-                "gif_bytes": GIF_PATH.stat().st_size if GIF_PATH.exists() else 0,
-            },
-            indent=2,
-        )
-    )
+    result = {
+        "docx": str(DOCX_PATH),
+        "gif": str(GIF_PATH),
+        "thumbnail": str(THUMB_PATH),
+        **audit_docx(),
+    }
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

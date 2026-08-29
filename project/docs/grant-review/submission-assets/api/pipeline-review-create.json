@@ -1,0 +1,48 @@
+{
+  "pipeline": {
+    "id": "67edd321-cb7e-4085-a64c-e83e9b7a0fa8",
+    "project_id": "0c7643e1-471f-4b04-848c-329c39f77143",
+    "name": "Phase 2 Review Pipeline 2026-06-04",
+    "description": "Reviewer evidence pipeline for repeated AI unlearning verification, sanitized evidence generation, and report exports.",
+    "target_scope": {
+      "items": [
+        {
+          "targetType": "api_endpoint",
+          "requestReason": "GDPR deletion verification sample",
+          "targetScopeSummary": "Tenant deletion evidence sample"
+        },
+        {
+          "targetType": "assistant",
+          "requestReason": "Regulated AI suppression sample",
+          "targetScopeSummary": "Assistant black-box suppression evidence sample"
+        },
+        {
+          "targetType": "model",
+          "requestReason": "Post-update regression sample",
+          "targetScopeSummary": "Repeatable verification after model or policy change"
+        }
+      ],
+      "summary": "Repeatable Phase 2 reviewer scope across API-based AI suppression cases without raw customer content."
+    },
+    "validation_config": {
+      "reviewMode": "manual",
+      "defaultValidationScore": 1
+    },
+    "evidence_config": {
+      "artifact": "sanitized_bundle",
+      "anchorOnRun": false,
+      "exportFormats": [
+        "json",
+        "csv",
+        "pdf"
+      ],
+      "generateOnRun": true
+    },
+    "anchor_required": true,
+    "export_required": true,
+    "trigger_mode": "manual",
+    "created_by": "abfd7457-5121-4916-880d-e1a2cfc91913",
+    "created_at": "2026-06-04T09:29:27.605499+00:00",
+    "updated_at": "2026-06-04T09:29:27.605499+00:00"
+  }
+}

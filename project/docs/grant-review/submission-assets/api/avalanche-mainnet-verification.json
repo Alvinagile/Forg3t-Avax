@@ -1,0 +1,26 @@
+﻿{
+    "checkedAt":  "2026-06-04T09:30:55.1836821Z",
+    "assertion":  "Contract and transaction are on Avalanche C-Chain mainnet, not Fuji testnet.",
+    "mainnet":  {
+                    "rpc":  "https://api.avax.network/ext/bc/C/rpc",
+                    "chainIdHex":  "0xa86a",
+                    "chainIdDecimal":  43114,
+                    "expectedChainId":  43114,
+                    "contract":  "0x20E772a60CEE7D8E6706E698B129FD917c3936bf",
+                    "contractCodeBytesApprox":  1292,
+                    "transactionHash":  "0x4f9d253d097808406777ba1b9d67b0ac4baac44d34d1d101cea4a3721559c69b",
+                    "receiptStatus":  "0x1",
+                    "receiptBlockHex":  "0x52fc5ee",
+                    "receiptBlockDecimal":  87016942,
+                    "transactionTo":  "0x20e772a60cee7d8e6706e698b129fd917c3936bf",
+                    "explorerUrl":  "https://snowtrace.io/tx/0x4f9d253d097808406777ba1b9d67b0ac4baac44d34d1d101cea4a3721559c69b"
+                },
+    "fujiControl":  {
+                        "rpc":  "https://api.avax-test.network/ext/bc/C/rpc",
+                        "chainIdHex":  "0xa869",
+                        "chainIdDecimal":  43113,
+                        "expectedFujiChainId":  43113,
+                        "contractCodeBytesApprox":  0,
+                        "transactionReceiptIsNull":  true
+                    }
+}

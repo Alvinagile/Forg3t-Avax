@@ -1,0 +1,39 @@
+{
+  "anchors": [
+    {
+      "date": "2026-06-02",
+      "job": "dcef5dc1-3b85-4e36-8ab8-55f0cd8ea803",
+      "evidence": "308463f6-cad9-4490-ac9b-af4ac3cfd8b1",
+      "tx": "0x4f9d253d097808406777ba1b9d67b0ac4baac44d34d1d101cea4a3721559c69b",
+      "block": "87016942"
+    },
+    {
+      "date": "2026-05-31",
+      "job": "c4fc546a-b544-4d27-a8d3-abba1118f1d9",
+      "evidence": "180594c5-17e4-48e3-98c2-56965b8964b9",
+      "tx": "0x1d73a8ef8028c81292caf5b9081a9ff4d4d47519f24008abc5fa6f7d6b56453b",
+      "block": "mainnet"
+    },
+    {
+      "date": "2026-05-29",
+      "job": "c54e7f03-16dc-4a3d-a902-2d4c9ed91005",
+      "evidence": "fc8a2a5e-c14c-48ac-b49d-abce4e57adc8",
+      "tx": "0x43614297bb117278dbd481eb615fff8649cff7bbc3c87c63c6c9691855017356",
+      "block": "mainnet"
+    },
+    {
+      "date": "2026-05-28",
+      "job": "84c6009a-a9bd-4a21-82d5-a92920fb06fe",
+      "evidence": "3561358e-8944-4bab-9f1d-5a32007f6ab6",
+      "tx": "0xf5edaff5777f349ac3d1cb00bfc5953040927b74450667194a00cd7d844678dc",
+      "block": "mainnet"
+    },
+    {
+      "date": "2026-05-27",
+      "job": "daily-reviewer-anchor-run",
+      "evidence": "reviewer automation evidence",
+      "tx": "0x751fec0d93290cc0bcc25e42735069e88c42dd42c664e6ed064b025c22e1ec8d",
+      "block": "mainnet"
+    }
+  ]
+}
